@@ -5,11 +5,21 @@ const net = require('net');
 const fs = require('fs');
 const path = require('path');
 
+// EJSテンプレートエンジンの設定
+app.set('view engine', 'ejs');
+app.set('views', path.join(__dirname, 'views'));
+
 // 静的ファイルの提供を有効化
 app.use(express.static('public'));
 
+// グローバル変数としてAPデータを保持
+let apData = {
+  mtime: Math.floor(Date.now() / 1000),
+  aps: []
+};
+
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+  res.render('index', apData);
 });
 
 // ログディレクトリが存在しない場合は作成
@@ -83,8 +93,9 @@ function logger() {
     console.log('接続が閉じられました');
     logStream.write('接続が閉じられました\n');
     logStream.end();
-    // 接続が閉じられた後にクライアントカウントを計算
-    extractor();
+
+    extractor();  // ログからデータを抽出
+    
   });
 
   client.on('error', (err) => {
@@ -216,22 +227,7 @@ function extractor() {
     const clientCounts = extractClientInfo(lines);
     const maxClients = extractMaxClients(lines);
 
-    // 結果出力
-    console.log('\n=== アクセスポイントの状態 ===');
-    for (const ap_name in apInfo) {
-      console.log(`${ap_name} ${apInfo[ap_name].ch} / ${apInfo[ap_name].dbm}`);
-    }
-
-    console.log('\n=== クライアント接続状況 ===');
-    for (const accessPoint in clientCounts) {
-      console.log(`${accessPoint}`);
-      for (const essid in clientCounts[accessPoint]) {
-        const currentCount = clientCounts[accessPoint][essid];
-        const maxCount = maxClients[essid] || 0;
-        const percentage = maxCount > 0 ? Math.floor((currentCount / maxCount) * 100) : 0;
-        console.log(`  ${essid}:${currentCount}/${maxCount}台 (${percentage}%)`);
-      }
-    }
+    updateApData(apInfo, clientCounts, maxClients);
   });
 }
 
@@ -245,4 +241,51 @@ logger();
 app.listen(PORT, () => {
   console.log(`http://localhost:${PORT} で待機中`);
 });
+
+// メイン処理
+function updateApData(apStatusInfo, clientCounts, maxClients) {
+  // APデータの更新
+  apData.mtime = Math.floor(Date.now() / 1000);
+  apData.aps = [];
+
+  // APデータの構築
+  for (let i = 1; i <= 16; i++) {
+    const apName = `ap_${String(i).padStart(2, '0')}`;
+    const currentApInfo = apStatusInfo[apName] || { ch: '-', dbm: '-' };
+    const ssids = [];
+
+    if (clientCounts[apName]) {
+      for (const [ssidName, count] of Object.entries(clientCounts[apName])) {
+        const maxCount = maxClients[ssidName] || 0;
+        const percentage = maxCount > 0 ? Math.floor((count / maxCount) * 100) : 0;
+        const level = Math.min(Math.floor(percentage / 10), 10);
+
+        ssids.push({
+          name: ssidName,
+          count: count,
+          level: level
+        });
+      }
+    }
+
+    apData.aps.push({
+      name: apName,
+      channel: currentApInfo.ch,
+      power: currentApInfo.dbm,
+      ssids: ssids,
+      level: ssids.length > 0 ? Math.max(...ssids.map(s => s.level)) : 0
+    });
+  }
+
+  // 結果出力
+  console.log('\n=== アクセスポイントの状態 ===');
+  for (const ap of apData.aps) {
+    console.log(`${ap.name} ${ap.channel} / ${ap.power}`);
+    if (ap.ssids.length > 0) {
+      for (const ssid of ap.ssids) {
+        console.log(`  ${ssid.name}: ${ssid.count}台 (レベル${ssid.level})`);
+      }
+    }
+  }
+}
 
