@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <title>AP監視ページ</title>
+    <meta charset=UTF-8>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="cache-control" content="no-cache">
+    <meta http-equiv="expires" content="0">
+    <meta http-equiv="Content-Style-Type" content="text/css">
+
+    <meta http-equiv="refresh" content="60; URL=">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            font-size: 2vw;
+/*            border:#c00 solid 1px; */
+        }
+
+        body {
+            font-family: sans-serif;
+        }
+
+        table#header {
+            margin-ratio: 0.5em;
+            width: 100%;
+        }
+
+        table#header td#title {
+            font-weight: 900;
+        }
+
+        table#header td.chart {
+            font-weight: 600;
+            width: 2.2vw;
+            text-align: right;
+            font-size: 1.3em;
+            line-height: 0.8em;
+        }
+
+        .lv0 {
+            background-color: #9FA8DA;
+        }
+
+        .lv1 {
+            background-color: #80CBC4;
+        }
+
+        .lv2 {
+            background-color: #81C784;
+        }
+
+        .lv3 {
+            background-color: #AED581;
+        }
+
+        .lv4 {
+            background-color: #D4E157;
+        }
+
+        .lv5 {
+            background-color: #FFEB3B;
+        }
+
+        .lv6 {
+            background-color: #FFCA28;
+        }
+
+        .lv7 {
+            background-color: #FFA726;
+        }
+
+        .lv8 {
+            background-color: #FF7043;
+        }
+
+        .lv9 {
+            background-color: #EF5350;
+        }
+
+        .lv10 {
+            background-color: #C0211D;
+        }
+
+/* ========== INFO_APのスタイル ========== */
+
+        table#info_ap {
+            margin: auto;
+            width: 95%;
+            height: 70%;
+            white-space: nowrap;
+        }
+
+        table#info_ap td {
+            vertical-align: top;
+            text-align: center;
+            border: solid 1px black;
+            width: 10%;
+            height: 50%;
+        }
+/*
+        table#info_ap td * {
+            background-color: transparent;
+            width: 100%;
+        }
+*/
+        /* info_apセクション */
+        table#info_ap td div.info_ap {
+            padding: 0 0 0.4em 0;
+            background-color: #ccc;
+            line-height: 0.8em;
+        }
+        
+        table#info_ap td span.ap_name {
+            line-height: 0.5em;
+            font-weight: 900;
+            font-size: 0.8em;
+        }
+
+        table#info_ap td span.radio {
+            line-height: 0.5em;
+            color: rgba(0, 0, 0, 0.7);
+            font-size: 0.5em;
+        }
+
+        table#info_ap td span.ch {
+            color: rgba(0, 0, 0, 0.7);
+        }
+
+        table#info_ap td span.dbm {
+            color: rgba(0, 0, 0, 0.7);
+        }
+
+        table#info_ap td span.cnt {
+            margin-bottom: 0.3em;
+            font-size: 2.2em;
+            font-weight: 900;
+            line-height: 0.7;
+        }
+
+        table#info_ap td div.one {
+            background-color: #FF7043;
+        }
+        table#info_ap td span.ssid {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            font-size: 0.7em;
+            font-weight: 900;
+        }
+
+        table#info_ap td span.ratio {
+            margin-top: 0.1em;
+            font-size: 1.4em;
+        }
+
+        table#ssid_maxclt {
+            border-collapse: collapse;
+            margin: 0.2em auto 0 auto;
+            white-space: nowrap;
+        }
+
+        table#ssid_maxclt * {
+            border: 2px gray solid;
+        }
+
+        table#ssid_maxclt th {
+            padding: 0 0.4em 0 0.4em;
+            font-size: 0.5em;
+            font-weight: 900;
+        }
+
+        table#ssid_maxclt td {
+            text-align: center;
+            font-weight: 900;
+        }
+
+        table#infobar {
+            width: 100%;
+            border-collapse: collapse;
+            position: absolute;
+            ratio: 0;
+        }
+
+        table#infobar td#dhcp {
+            padding-left: 0.5em;
+            font-size: 1.2em;
+            text-align: left;
+            font-weight: 900;
+        }
+
+        table#infobar td#ptime {
+            padding-right: 0.5em;
+            font-size: 1.2em;
+            text-align: right;
+            font-weight: 900;
+        }
+
+        table#infobar td#title {
+            padding-left: 0.8em;
+            background-color: #ddd;
+            font-size: 0.8em;
+            text-align: left;
+            font-weight: 100;
+        }
+
+        table#infobar td#version {
+            padding-right: 0.8em;
+            font-size: 0.8em;
+            background-color: #ddd;
+            text-align: right;
+            font-weight: 100;
+        }
+    </style>
+
+</head>
+
+<body>
+
+    <table id="header">
+        <tr>
+            <td id="title">§&nbsp;WiFi AP Heatmap</td>
+            <td class="chart lv0">0</td>
+            <td class="chart lv1">1</td>
+            <td class="chart lv2">2</td>
+            <td class="chart lv3">3</td>
+            <td class="chart lv4">4</td>
+            <td class="chart lv5">5</td>
+            <td class="chart lv6">6</td>
+            <td class="chart lv7">7</td>
+            <td class="chart lv8">8</td>
+            <td class="chart lv9">9</td>
+            <td class="chart lv10">10</td>
+        </tr>
+    </table>
+
+    <input type="hidden" id="mtime" value="1742795659">
+    <table id="info_ap">
+        <tr>
+            <td class="ap lv1">
+                <div class="info_ap">
+                <span class="ap_name">ap_01</span>
+                <span class="radio">127ch&nbsp;/&nbsp;27dBm</span>
+                </div>
+                <div class="info_ssid lv3">
+                <span class="ssid">01-WORK</span>
+                <span class="cnt">16<span>台</span></span>
+                </div>
+                <div class="info_ssid lv4">
+                <span class="ssid">meimei</span>
+                <span class="cnt">12<span>台</span></span>
+                </div>
+            </td>
+            <td class="ap lv0">
+                <div class="ap_name">ap_<span>02</span></div>
+                <div class="cnt">4<span>台</span></div>
+                <div class="ratio">2%</div>
+                <div class="ssid">02-WORK<br>60ch&nbsp;/&nbsp;23dBm</div>
+            </td>
+            <td class="ap lv0">
+                <div class="ap_name">ap_<span>03</span></div>
+                <div class="cnt">1<span>台</span></div>
+                <div class="ratio">0%</div>
+                <div class="ssid">03-WORK<br>136ch&nbsp;/&nbsp;27dBm</div>
+            </td>
+            <td class="ap lv0">
+                <div class="ap_name">ap_<span>04</span></div>
+                <div class="cnt">0<span>台</span></div>
+                <div class="ratio">0%</div>
+                <div class="ssid">04-WORK<br>144ch&nbsp;/&nbsp;27dBm</div>
+            </td>
+            <td class="ap lv0">
+                <div class="ap_name">ap_<span>05</span></div>
+                <div class="cnt">0<span>台</span></div>
+                <div class="ratio">0%</div>
+                <div class="ssid">05-WORK<br>120ch&nbsp;/&nbsp;27dBm</div>
+            </td>
+            <td class="ap lv0">
+                <div class="ap_name">ap_<span>06</span></div>
+                <div class="cnt">0<span>台</span></div>
+                <div class="ratio">0%</div>
+                <div class="ssid">06-WORK<br>132ch&nbsp;/&nbsp;27dBm</div>
+            </td>
+            <td class="ap lv0">
+                <div class="ap_name">ap_<span>07</span></div>
+                <div class="cnt">0<span>台</span></div>
+                <div class="ratio">0%</div>
+                <div class="ssid">01-WORK<br>56ch&nbsp;/&nbsp;23dBm</div>
+            </td>
+            <td class="ap lv0">
+                <div class="ap_name">ap_<span>08</span></div>
+                <div class="cnt">2<span>台</span></div>
+                <div class="ratio">1%</div>
+                <div class="ssid">02-WORK<br>144ch&nbsp;/&nbsp;9dBm</div>
+            </td>
+        </tr>
+        <tr>
+            <td class="ap lv5">
+                <div class="ap_name">ap_<span>09</span></div>
+                <div class="cnt">60<span>台</span></div>
+                <div class="ratio">50%</div>
+                <div class="ssid">09-WORK<br>124ch&nbsp;/&nbsp;27dBm</div>
+            </td>
+            <td class="ap lv5">
+                <div class="ap_name">ap_<span>10</span></div>
+                <div class="cnt">60<span>台</span></div>
+                <div class="ratio">50%</div>
+                <div class="ssid">10-WORK<br>116ch&nbsp;/&nbsp;27dBm</div>
+            </td>
+            <td class="ap lv2">
+                <div class="ap_name">ap_<span>11</span></div>
+                <div class="cnt">33<span>台</span></div>
+                <div class="ratio">27%</div>
+                <div class="ssid">11-WORK<br>48ch&nbsp;/&nbsp;23dBm</div>
+            </td>
+            <td class="ap lv6">
+                <div class="ap_name">ap_<span>12</span></div>
+                <div class="cnt">83<span>台</span></div>
+                <div class="ratio">69%</div>
+                <div class="ssid">12-WORK<br>108ch&nbsp;/&nbsp;27dBm</div>
+            </td>
+            <td class="ap lv3">
+                <div class="ap_name">ap_<span>13</span></div>
+                <div class="cnt">54<span>台</span></div>
+                <div class="ratio">38%</div>
+                <div class="ssid">13-WORK<br>112ch&nbsp;/&nbsp;27dBm</div>
+            </td>
+            <td class="ap lv6">
+                <div class="ap_name">ap_<span>14</span></div>
+                <div class="cnt">80<span>台</span></div>
+                <div class="ratio">66%</div>
+                <div class="ssid">14-WORK<br>44ch&nbsp;/&nbsp;23dBm</div>
+            </td>
+            <td class="ap lv3">
+                <div class="ap_name">ap_<span>15</span></div>
+                <div class="cnt">54<span>台</span></div>
+                <div class="ratio">38%</div>
+                <div class="ssid">01-WORK<br>100ch&nbsp;/&nbsp;27dBm</div>
+            </td>
+            <td class="ap lv1">
+                <div class="ap_name">ap_<span>16</span></div>
+                <div class="cnt">24<span>台</span></div>
+                <div class="ratio">17%</div>
+                <div class="ssid">02-WORK<br>64ch&nbsp;/&nbsp;23dBm</div>
+            </td>
+        </tr>
+    </table>
+    
+  
+    INFO_AP
+
+    INFO_NW
+
+    INFO_CH
+
+    INFO_DHCP
+
+    INFO_SYS
+
+    <code style="display:none;">
+/* Update error message */
+const modified = document.getElementById("mtime");
+const modified_sec = modified.value;
+let present_sec = Date.now();
+present_sec = Math.trunc( present_sec / 1000 )
+const elapsed = present_sec - modified_sec;
+/*	document.write( `<p>${present_sec}</p>` );
+	document.write( `<p>${modified_sec}</p>` );
+	document.write( `<p>${elapsed}</p>` ); */
+	if ( elapsed > 300 ) { document.write( `<p style="font-size:4em; font-weight:900; color:#c00; text-align:center; line-height:1em;">Update Error</p>` ) } 
+	document.close;
+    </code>
+
+</body>
+
+</html>

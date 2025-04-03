@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<title>AP監視ページ</title>
+<meta charset=UTF-8>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="cache-control" content="no-cache">
+<meta http-equiv="expires" content="0">
+<meta http-equiv="Content-Style-Type" content="text/css">
+
+<meta http-equiv="refresh" content="60; URL=">
+<style>
+
+* { margin:0; padding:0; font-size:2vw; }
+
+body {
+  font-family:sans-serif;
+}
+
+table#header {
+  margin-bottom:0.5em;
+  width:100%;
+}
+table#header td#title {
+  font-weight:900;
+}
+table#header td.chart {
+	font-weight:600;
+	width:2.2vw;
+	text-align:right;
+	font-size:1.3em;
+	line-height:0.8em;
+}
+td.lv0 { background-color:#9FA8DA;}
+td.lv1 { background-color:#80CBC4;}
+td.lv2 { background-color:#81C784;}
+td.lv3 { background-color:#AED581;}
+td.lv4 { background-color:#D4E157;}
+td.lv5 { background-color:#FFEB3B;}
+td.lv6 { background-color:#FFCA28;}
+td.lv7 { background-color:#FFA726;}
+td.lv8 { background-color:#FF7043;}
+td.lv9 { background-color:#EF5350;}
+td.lv10 { background-color:#C0211D;}
+
+table#apmap {
+  margin:auto;
+  width:95%;
+  height:70%;
+  white-space: nowrap;
+}
+
+table#apmap td {
+  vertical-align:top;
+  text-align:center;
+  border:solid 1px black;
+  width:10%; height:50%;
+}
+table#apmap span { font-size:0.5em; }
+table#apmap td * {
+  background-color:transparent;
+  line-height:1em;
+  width:100%;
+}
+table#apmap td #top {
+  vertical-align:super;
+  text-align:right;
+  font-size:0.6em;
+}
+table#apmap td .top span {
+  font-weight:900;
+  font-size:1em;
+}
+table#apmap td .mid {
+  margin-top:0.3em;
+  font-size:2.2em;
+  font-weight:900;
+}
+table#apmap td .bottom {
+  margin-top:0.1em;
+  font-size:1.4em;
+}
+
+table#apmap td .ssid {
+  color:rgba(0,0,0,0.7);
+  font-size:0.7em;
+}
+
+div#ssidbox {
+	display: flex;
+}
+
+div#ssidbox td.rtitle{
+	font-size: 0.4em;
+}
+
+table#ssid_cnt {
+	border-collapse:collapse;
+	margin:0.2em auto 0 auto;
+    white-space: nowrap;
+}
+table#ssid_cnt * { border:2px gray solid; }
+table#ssid_cnt th {
+	padding:0 0.4em 0 0.4em;
+	font-size:0.6em;
+}
+
+table#ssid_cnt td {
+	text-align:center;
+	font-size:0.6em;
+	font-weight:900;
+}
+
+table#ssid_maxclt {
+	border-collapse:collapse;
+	margin:0.2em auto 0 auto;
+    white-space: nowrap;
+}
+table#ssid_maxclt * { border:2px gray solid; }
+table#ssid_maxclt th {
+	padding:0 0.4em 0 0.4em;
+	font-size:0.5em;
+	font-weight:900;
+}
+
+table#ssid_maxclt td {
+	text-align:center;
+	font-weight:900;
+}
+
+table#infobar {
+	width:100%;
+	border-collapse:collapse;
+	position: absolute;
+	bottom: 0;
+}
+table#infobar td#dhcp {
+	padding-left:0.5em;
+	font-size:1.2em;
+	text-align:left;
+	font-weight:900;
+}
+table#infobar td#ptime {
+	padding-right:0.5em;
+	font-size:1.2em;
+	text-align:right;
+	font-weight:900;
+}
+table#infobar td#title {
+	padding-left:0.8em;
+	background-color:#ddd;
+	font-size:0.8em;
+	text-align:left;
+	font-weight:100;
+}
+table#infobar td#version {
+	padding-right:0.8em;
+	font-size:0.8em;
+	background-color:#ddd;
+	text-align:right;
+	font-weight:100;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<table id="header"><tr>
+<td id="title">§&nbsp;WiFi AP Heatmap</td>
+<td class="chart lv0">0</td>
+<td class="chart lv1">1</td>
+<td class="chart lv2">2</td>
+<td class="chart lv3">3</td>
+<td class="chart lv4">4</td>
+<td class="chart lv5">5</td>
+<td class="chart lv6">6</td>
+<td class="chart lv7">7</td>
+<td class="chart lv8">8</td>
+<td class="chart lv9">9</td>
+<td class="chart lv10">10</td>
+</tr></table>
+
+INFO_AP
+
+INFO_NW
+
+INFO_CH
+
+INFO_DHCP
+
+INFO_SYS
+
+<script>
+/* Update error message */
+const modified = document.getElementById("mtime");
+const modified_sec = modified.value;
+let present_sec = Date.now();
+present_sec = Math.trunc( present_sec / 1000 )
+const elapsed = present_sec - modified_sec;
+/*	document.write( `<p>${present_sec}</p>` );
+	document.write( `<p>${modified_sec}</p>` );
+	document.write( `<p>${elapsed}</p>` ); */
+	if ( elapsed > 300 ) { document.write( `<p style="font-size:4em; font-weight:900; color:#c00; text-align:center; line-height:1em;">Update Error</p>` ) } 
+	document.close;
+</script>
+
+</body></html>

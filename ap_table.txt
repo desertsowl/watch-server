@@ -1,0 +1,102 @@
+<table id="infoap">
+  <tr>
+    <td class="ap lv1">
+      <div class="apname">ap_<span>01</span></div>
+      <div class="essid">WORK-01<div>
+      <div class="qty">16<span>台</span></div>
+      <div class="ratio">11%</div>
+    </td>
+    <td class="ap lv0">
+      <div class="apname">ap_<span>02</span></div>
+      <div class="essid">WORK-02<div>
+      <div class="qty">4<span>台</span></div>
+      <div class="ratio">2%</div>
+    </td>
+    <td class="ap lv0">
+      <div class="apname">ap_<span>03</span></div>
+      <div class="essid">WORK-03<div>
+      <div class="qty">1<span>台</span></div>
+      <div class="ratio">0%</div>
+    </td>
+    <td class="ap lv0">
+      <div class="apname">ap_<span>04</span></div>
+      <div class="essid">WORK-04<div>
+      <div class="qty">0<span>台</span></div>
+      <div class="ratio">0%</div>
+    </td>
+    <td class="ap lv0">
+      <div class="apname">ap_<span>05</span></div>
+      <div class="essid">WORK-05<div>
+      <div class="qty">0<span>台</span></div>
+      <div class="ratio">0%</div>
+    </td>
+    <td class="ap lv0">
+      <div class="apname">ap_<span>06</span></div>
+      <div class="essid">WORK-06<div>
+      <div class="qty">0<span>台</span></div>
+      <div class="ratio">0%</div>
+    </td>
+    <td class="ap lv0">
+      <div class="apname">ap_<span>07</span></div>
+      <div class="essid">WORK-07<div>
+      <div class="qty">0<span>台</span></div>
+      <div class="ratio">0%</div>
+    </td>
+    <td class="ap lv0">
+      <div class="apname">ap_<span>08</span></div>
+      <div class="essid">WORK-08<div>
+      <div class="qty">2<span>台</span></div>
+      <div class="ratio">1%</div>
+    </td>
+  </tr>
+  <tr>
+    <td class="ap lv5">
+      <div class="apname">ap_<span>09</span></div>
+      <div class="essid">WORK-09<div>
+      <div class="qty">60<span>台</span></div>
+      <div class="ratio">50%</div>
+    </td>
+    <td class="ap lv5">
+      <div class="apname">ap_<span>10</span></div>
+      <div class="essid">WORK-10<div>
+      <div class="qty">60<span>台</span></div>
+      <div class="ratio">50%</div>
+    </td>
+    <td class="ap lv2">
+      <div class="apname">ap_<span>11</span></div>
+      <div class="essid">WORK-11<div>
+      <div class="qty">33<span>台</span></div>
+      <div class="ratio">27%</div>
+    </td>
+    <td class="ap lv6">
+      <div class="apname">ap_<span>12</span></div>
+      <div class="essid">WORK-12<div>
+      <div class="qty">83<span>台</span></div>
+      <div class="ratio">69%</div>
+    </td>
+    <td class="ap lv3">
+      <div class="apname">ap_<span>13</span></div>
+      <div class="essid">WORK-13<div>
+      <div class="qty">54<span>台</span></div>
+      <div class="ratio">38%</div>
+    </td>
+    <td class="ap lv6">
+      <div class="apname">ap_<span>14</span></div>
+      <div class="essid">WORK-14<div>
+      <div class="qty">80<span>台</span></div>
+      <div class="ratio">66%</div>
+    </td>
+    <td class="ap lv3">
+      <div class="apname">ap_<span>15</span></div>
+      <div class="essid">WORK-15<div>
+      <div class="qty">54<span>台</span></div>
+      <div class="ratio">38%</div>
+    </td>
+    <td class="ap lv1">
+      <div class="apname">ap_<span>16</span></div>
+      <div class="essid">WORK-16<div>
+      <div class="qty">24<span>台</span></div>
+      <div class="ratio">17%</div>
+    </td>
+  </tr>
+</table>
