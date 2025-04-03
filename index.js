@@ -15,10 +15,80 @@ app.use(express.static('public'));
 // グローバル変数としてAPデータを保持
 let apData = {
   mtime: Math.floor(Date.now() / 1000),
-  aps: []
+  aps: [],
+  logs: [], // ログデータを追加
+  htmlData: '' // HTMLデータを追加
 };
 
+// ログエントリを追加する関数
+function addLogEntry(message, type = 'info') {
+  const now = new Date();
+  const timeStr = now.toLocaleTimeString('ja-JP');
+  
+  apData.logs.unshift({
+    time: timeStr,
+    message: message,
+    type: type
+  });
+  
+  // ログエントリを最大20件に制限
+  if (apData.logs.length > 20) {
+    apData.logs.pop();
+  }
+}
+
+// HTMLデータを生成する関数
+function generateHtmlData() {
+  let html = '<div class="html-data-section">';
+  html += '<h2>生成されたHTMLデータ</h2>';
+  html += '<div class="html-content">';
+  
+  // APデータのHTML生成
+  html += '<table class="html-table">';
+  html += '<tr><th>AP名</th><th>チャンネル</th><th>パワー</th><th>SSID</th><th>接続数</th><th>レベル</th></tr>';
+  
+  for (const ap of apData.aps) {
+    html += '<tr>';
+    html += `<td>${ap.name}</td>`;
+    html += `<td>${ap.channel}</td>`;
+    html += `<td>${ap.power}</td>`;
+    
+    if (ap.ssids && ap.ssids.length > 0) {
+      html += '<td>';
+      for (const ssid of ap.ssids) {
+        html += `${ssid.name}<br>`;
+      }
+      html += '</td>';
+      
+      html += '<td>';
+      for (const ssid of ap.ssids) {
+        html += `${ssid.count}台<br>`;
+      }
+      html += '</td>';
+      
+      html += '<td>';
+      for (const ssid of ap.ssids) {
+        html += `<span class="level-${ssid.level}">${ssid.level}</span><br>`;
+      }
+      html += '</td>';
+    } else {
+      html += '<td>-</td><td>-</td><td>-</td>';
+    }
+    
+    html += '</tr>';
+  }
+  
+  html += '</table>';
+  html += '</div>';
+  html += '</div>';
+  
+  apData.htmlData = html;
+  addLogEntry('HTMLデータを生成しました');
+}
+
 app.get('/', (req, res) => {
+  // 表示前にHTMLデータを生成
+  generateHtmlData();
   res.render('index', apData);
 });
 
@@ -43,9 +113,12 @@ function logger() {
   ];
   let currentCommand = 0;
 
+  addLogEntry('telnetサーバーに接続を試みています...');
+
   client.connect(23, '172.21.7.220', () => {
     console.log('telnetサーバーに接続しました');
     logStream.write('telnetサーバーに接続しました\n');
+    addLogEntry('telnetサーバーに接続しました');
   });
 
   client.on('data', (data) => {
@@ -66,6 +139,7 @@ function logger() {
           // 最初のコマンドを実行
           client.write(commands[currentCommand] + '\r\n');
           logStream.write(`\n=== 実行コマンド: ${commands[currentCommand]} ===\n`);
+          addLogEntry(`コマンド実行: ${commands[currentCommand]}`);
         }
         break;
 
@@ -79,10 +153,12 @@ function logger() {
             // 次のコマンドを実行
             client.write(commands[currentCommand] + '\r\n');
             logStream.write(`\n=== 実行コマンド: ${commands[currentCommand]} ===\n`);
+            addLogEntry(`コマンド実行: ${commands[currentCommand]}`);
           } else {
             // 全コマンド完了後にログアウト
             client.write('exit\r\n');
             client.end();
+            addLogEntry('全コマンド実行完了、ログアウトします');
           }
         }
         break;
@@ -93,15 +169,16 @@ function logger() {
     console.log('接続が閉じられました');
     logStream.write('接続が閉じられました\n');
     logStream.end();
+    addLogEntry('telnet接続が閉じられました');
 
     extractor();  // ログからデータを抽出
-    
   });
 
   client.on('error', (err) => {
     console.error('エラーが発生しました:', err);
     logStream.write(`エラーが発生しました: ${err}\n`);
     logStream.end();
+    addLogEntry(`エラーが発生しました: ${err}`, 'error');
   });
 }
 
@@ -127,7 +204,7 @@ function extractor() {
 
       if (inShowAps) {
         lineCount++;
-        if (lineCount > 7 && line.match(/^ap_\d{2}\s/)) {
+        if (lineCount > 5 && line.match(/^ap_\d{2}\s/)) {
           const fields = line.trim().split(/\s+/);
           if (fields.length >= 12) {
             apInfo[fields[0]] = {
@@ -150,10 +227,14 @@ function extractor() {
     let inClientList = false;
     let lineCount = 0;
 
+    console.log('\n=== Client List データ抽出開始 ===');
+    console.log('全行数:', lines.length);
+
     for (const line of lines) {
       if (line.startsWith('Client List')) {
         inClientList = true;
         lineCount = 0;
+        console.log('\nClient Listセクション開始');
         continue;
       }
 
@@ -161,27 +242,47 @@ function extractor() {
         lineCount++;
         if (line.trim() === '') {
           inClientList = false;
+          console.log('Client Listセクション終了');
           continue;
         }
         if (lineCount < 4) continue;
 
+        // デバッグ用：各行の内容を出力
+        console.log(`\n処理中の行 (${lineCount}行目):`, line);
+
         const fields = line.split(/\s{2,}/);
+        console.log('分割後のフィールド:', fields);
+
         if (fields.length >= 7) {
           const essid = fields[4].trim();
           const accessPoint = fields[5].trim();
 
-          if (!accessPoint.startsWith('ap_')) continue;
+          console.log('抽出データ:', { essid, accessPoint });
+
+          if (!accessPoint.startsWith('ap_')) {
+            console.log('ap_で始まらないためスキップ');
+            continue;
+          }
 
           if (!clientCounts[accessPoint]) {
             clientCounts[accessPoint] = {};
+            console.log(`新しいAPを追加: ${accessPoint}`);
           }
           if (!clientCounts[accessPoint][essid]) {
             clientCounts[accessPoint][essid] = 0;
+            console.log(`新しいSSIDを追加: ${essid} (AP: ${accessPoint})`);
           }
           clientCounts[accessPoint][essid]++;
+          console.log(`カウント更新: ${accessPoint} - ${essid} = ${clientCounts[accessPoint][essid]}`);
+        } else {
+          console.log('フィールド数が不足しているためスキップ');
         }
       }
     }
+
+    console.log('\n=== 最終的なclientCounts ===');
+    console.log(JSON.stringify(clientCounts, null, 2));
+    
     return clientCounts;
   }
 
@@ -248,11 +349,24 @@ function updateApData(apStatusInfo, clientCounts, maxClients) {
   apData.mtime = Math.floor(Date.now() / 1000);
   apData.aps = [];
 
+  // デバッグ用：clientCountsの要素数を出力
+  console.log('\n=== clientCountsの要素数 ===');
+  console.log('clientCountsのキー数:', Object.keys(clientCounts).length);
+  console.log('clientCountsの内容:', JSON.stringify(clientCounts, null, 2));
+  
   // APデータの構築
   for (let i = 1; i <= 16; i++) {
     const apName = `ap_${String(i).padStart(2, '0')}`;
     const currentApInfo = apStatusInfo[apName] || { ch: '-', dbm: '-' };
     const ssids = [];
+
+    // デバッグ用：各APのclientCountsの状態を出力
+    console.log(`\nAP: ${apName}`);
+    console.log('clientCountsに存在するか:', !!clientCounts[apName]);
+    if (clientCounts[apName]) {
+      console.log('SSID数:', Object.keys(clientCounts[apName]).length);
+      console.log('SSID一覧:', Object.keys(clientCounts[apName]));
+    }
 
     if (clientCounts[apName]) {
       for (const [ssidName, count] of Object.entries(clientCounts[apName])) {
@@ -287,5 +401,7 @@ function updateApData(apStatusInfo, clientCounts, maxClients) {
       }
     }
   }
+  
+  addLogEntry('APデータを更新しました');
 }
 
