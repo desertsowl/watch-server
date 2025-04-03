@@ -15,80 +15,15 @@ app.use(express.static('public'));
 // グローバル変数としてAPデータを保持
 let apData = {
   mtime: Math.floor(Date.now() / 1000),
-  aps: [],
-  logs: [], // ログデータを追加
-  htmlData: '' // HTMLデータを追加
+  aps: []
 };
 
 // ログエントリを追加する関数
 function addLogEntry(message, type = 'info') {
-  const now = new Date();
-  const timeStr = now.toLocaleTimeString('ja-JP');
-  
-  apData.logs.unshift({
-    time: timeStr,
-    message: message,
-    type: type
-  });
-  
-  // ログエントリを最大20件に制限
-  if (apData.logs.length > 20) {
-    apData.logs.pop();
-  }
-}
-
-// HTMLデータを生成する関数
-function generateHtmlData() {
-  let html = '<div class="html-data-section">';
-  html += '<h2>生成されたHTMLデータ</h2>';
-  html += '<div class="html-content">';
-  
-  // APデータのHTML生成
-  html += '<table class="html-table">';
-  html += '<tr><th>AP名</th><th>チャンネル</th><th>パワー</th><th>SSID</th><th>接続数</th><th>レベル</th></tr>';
-  
-  for (const ap of apData.aps) {
-    html += '<tr>';
-    html += `<td>${ap.name}</td>`;
-    html += `<td>${ap.channel}</td>`;
-    html += `<td>${ap.power}</td>`;
-    
-    if (ap.ssids && ap.ssids.length > 0) {
-      html += '<td>';
-      for (const ssid of ap.ssids) {
-        html += `${ssid.name}<br>`;
-      }
-      html += '</td>';
-      
-      html += '<td>';
-      for (const ssid of ap.ssids) {
-        html += `${ssid.count}台<br>`;
-      }
-      html += '</td>';
-      
-      html += '<td>';
-      for (const ssid of ap.ssids) {
-        html += `<span class="level-${ssid.level}">${ssid.level}</span><br>`;
-      }
-      html += '</td>';
-    } else {
-      html += '<td>-</td><td>-</td><td>-</td>';
-    }
-    
-    html += '</tr>';
-  }
-  
-  html += '</table>';
-  html += '</div>';
-  html += '</div>';
-  
-  apData.htmlData = html;
-  addLogEntry('HTMLデータを生成しました');
+  console.log(`[${new Date().toLocaleTimeString('ja-JP')}] ${message}`);
 }
 
 app.get('/', (req, res) => {
-  // 表示前にHTMLデータを生成
-  generateHtmlData();
   res.render('index', apData);
 });
 
@@ -377,6 +312,7 @@ function updateApData(apStatusInfo, clientCounts, maxClients) {
         ssids.push({
           name: ssidName,
           count: count,
+          maxCount: maxCount,
           level: level
         });
       }

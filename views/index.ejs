@@ -9,7 +9,7 @@
     <meta http-equiv="cache-control" content="no-cache">
     <meta http-equiv="expires" content="0">
     <meta http-equiv="Content-Style-Type" content="text/css">
-    <meta http-equiv="refresh" content="60; URL=">
+  <!--   <meta http-equiv="refresh" content="60; URL="> -->
     
     <style>
         * {
@@ -23,7 +23,6 @@
         }
 
         table#header {
-            margin-ratio: 0.5em;
             width: 100%;
         }
 
@@ -84,6 +83,25 @@
             font-size: 0.5em;
         }
 
+        table#info_ap td span.maxcount {
+            line-height: 0.5em;
+            color: rgba(0, 0, 0, 0.7);
+            font-size: 0.5em;
+        }
+
+        table#info_ap td div.info_ssid_box {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            height: 6em;
+        }
+
+        table#info_ap td p.info_ssid {
+            margin: 0;
+            width: 100%;
+            height: 3.5em;
+        }
+
         table#info_ap td span.cnt {
             margin-bottom: 0.3em;
             font-size: 2.2em;
@@ -99,11 +117,6 @@
             font-weight: 900;
         }
 
-        table#info_ap td span.ratio {
-            margin-top: 0.1em;
-            font-size: 1.4em;
-        }
-        
         /* ログセクションのスタイル */
         .log-section {
             margin: 1em auto;
@@ -231,39 +244,22 @@
                             <span class="ap_name"><%= ap.name %></span>
                             <span class="radio"><%= ap.channel %>ch&nbsp;/&nbsp;<%= ap.power %>dBm</span>
                         </div>
-                        <% if(ap.ssids && ap.ssids.length > 0) { %>
-                            <% ap.ssids.forEach(function(ssid) { %>
-                                <div class="info_ssid lv<%= ssid.level %>">
+                        <div class="info_ssid_box">
+                            <% if(ap.ssids && ap.ssids.length > 0) { %>
+                                <% ap.ssids.forEach(function(ssid) { %>
+                                    <p class="info_ssid lv<%= ssid.level %>">
                                     <span class="ssid"><%= ssid.name %></span>
+                                    <span class="maxcount">(<%= ssid.maxCount %>台)</span>
                                     <span class="cnt"><%= ssid.count %><span>台</span></span>
-                                </div>
-                            <% }); %>
-                        <% } %>
+                                </p>
+                                <% }); %>
+                            <% } %>
+                        </div>
                     </td>
                 <% } %>
             </tr>
         <% } %>
     </table>
-    
-    <!-- ログセクション -->
-    <div class="log-section">
-        <h2>システムログ</h2>
-        <div class="log-content">
-            <% if (logs && logs.length > 0) { %>
-                <% logs.forEach(function(log) { %>
-                    <div class="log-entry">
-                        <span class="log-time"><%= log.time %></span>
-                        <span class="log-message <%= log.type === 'error' ? 'log-error' : '' %>"><%= log.message %></span>
-                    </div>
-                <% }); %>
-            <% } else { %>
-                <div class="log-entry">ログデータがありません</div>
-            <% } %>
-        </div>
-    </div>
-    
-    <!-- 生成されたHTMLデータセクション -->
-    <%- htmlData %>
 
     <script>
         const modified = document.getElementById("mtime");
