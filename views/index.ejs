@@ -61,14 +61,14 @@
             vertical-align: top;
             text-align: center;
             border: solid 1px black;
+            background-color: #ccc;
             width: 10%;
             height: 50%;
         }
 
         table#info_ap td div.info_ap {
-            padding: 0 0 0.4em 0;
             background-color: #ccc;
-            line-height: 0.8em;
+            line-height: 0.9em;
         }
         
         table#info_ap td span.ap_name {
@@ -87,19 +87,25 @@
             line-height: 0.5em;
             color: rgba(0, 0, 0, 0.7);
             font-size: 0.5em;
+            background-color: #0ff;
         }
 
         table#info_ap td div.info_ssid_box {
-            display: flex;
-            flex-direction: column;
             justify-content: center;
-            height: 6em;
+            margin:0; padding:0;
+            background-color: #ff0;
         }
 
         table#info_ap td p.info_ssid {
-            margin: 0;
             width: 100%;
             height: 3.5em;
+            background-color: #00f;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            position: relative;
         }
 
         table#info_ap td span.cnt {
@@ -107,18 +113,27 @@
             font-size: 2.2em;
             font-weight: 900;
             line-height: 0.7;
+            background-color: #0f0;
+            position: absolute;
+            bottom: 0.2em;
+            width: 100%;
+            text-align: center;
         }
 
         table#info_ap td span.ssid {
-            display: flex;
-            flex-direction: column;
             align-items: center;
             font-size: 0.7em;
             font-weight: 900;
+            background-color: #f0f;
+            line-height: 0.7em;
+            position: absolute;
+            top: 0.2em;
+            width: 100%;
+            text-align: center;
         }
 
         /* ログセクションのスタイル */
-        .log-section {
+        .log-section { 
             margin: 1em auto;
             width: 95%;
             border: 1px solid #ccc;
@@ -197,7 +212,7 @@
         .html-table th, .html-table td {
             border: 1px solid #ddd;
             padding: 0.3em;
-            text-align: left;
+            text-align: left; 
         }
         
         .html-table th {
@@ -209,17 +224,6 @@
             background-color: #f5f5f5;
         }
         
-        .level-0 { color: #9FA8DA; font-weight: bold; }
-        .level-1 { color: #80CBC4; font-weight: bold; }
-        .level-2 { color: #81C784; font-weight: bold; }
-        .level-3 { color: #AED581; font-weight: bold; }
-        .level-4 { color: #D4E157; font-weight: bold; }
-        .level-5 { color: #FFEB3B; font-weight: bold; }
-        .level-6 { color: #FFCA28; font-weight: bold; }
-        .level-7 { color: #FFA726; font-weight: bold; }
-        .level-8 { color: #FF7043; font-weight: bold; }
-        .level-9 { color: #EF5350; font-weight: bold; }
-        .level-10 { color: #C0211D; font-weight: bold; }
     </style>
 </head>
 
@@ -239,7 +243,7 @@
             <tr>
                 <% for(let col = 0; col < 8; col++) { %>
                     <% const ap = aps[row * 8 + col]; %>
-                    <td class="ap lv<%= ap.level %>">
+                    <td class="ap">
                         <div class="info_ap">
                             <span class="ap_name"><%= ap.name %></span>
                             <span class="radio"><%= ap.channel %>ch&nbsp;/&nbsp;<%= ap.power %>dBm</span>
@@ -250,8 +254,9 @@
                                     <p class="info_ssid lv<%= ssid.level %>">
                                     <span class="ssid"><%= ssid.name %></span>
                                     <span class="maxcount">(<%= ssid.maxCount %>台)</span>
-                                    <span class="cnt"><%= ssid.count %><span>台</span></span>
-                                </p>
+                                    <br>
+                                        <span class="cnt"><%= ssid.count %><span>台</span>
+                                    </p>
                                 <% }); %>
                             <% } %>
                         </div>
