@@ -152,7 +152,8 @@ function extractor() {
           if (fields.length >= 12) {
             apInfo[fields[0]] = {
               ch: fields[10],
-              dbm: fields[11]
+              dbm: fields[11],
+              zone: fields[8]
             };
           }
         }
