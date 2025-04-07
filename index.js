@@ -3,6 +3,9 @@
 //  http://watch.local:5000/
 // ==================================================
 
+// 日本時間に設定
+process.env.TZ = 'Asia/Tokyo';
+
 const express = require('express');
 const app = express();
 const PORT = 5000;
@@ -88,7 +91,7 @@ function logger() {
         if (buffer.match(/ap_\d+#/)) {
           currentCommand++;
           buffer = '';
-          
+
           if (currentCommand < commands.length) {
             // 次のコマンドを実行
             client.write(commands[currentCommand] + '\r\n');
@@ -167,14 +170,10 @@ function extractor() {
     let inClientList = false;
     let lineCount = 0;
 
-    console.log('\n=== Client List データ抽出開始 ===');
-    console.log('全行数:', lines.length);
-
     for (const line of lines) {
       if (line.startsWith('Client List')) {
         inClientList = true;
         lineCount = 0;
-        console.log('\nClient Listセクション開始');
         continue;
       }
 
@@ -182,47 +181,31 @@ function extractor() {
         lineCount++;
         if (line.trim() === '') {
           inClientList = false;
-          console.log('Client Listセクション終了');
           continue;
         }
         if (lineCount < 4) continue;
 
-        // デバッグ用：各行の内容を出力
-        console.log(`\n処理中の行 (${lineCount}行目):`, line);
-
         const fields = line.split(/\s{2,}/);
-        console.log('分割後のフィールド:', fields);
 
         if (fields.length >= 7) {
           const essid = fields[4].trim();
           const accessPoint = fields[5].trim();
 
-          console.log('抽出データ:', { essid, accessPoint });
-
           if (!accessPoint.startsWith('ap_')) {
-            console.log('ap_で始まらないためスキップ');
             continue;
           }
 
           if (!clientCounts[accessPoint]) {
             clientCounts[accessPoint] = {};
-            console.log(`新しいAPを追加: ${accessPoint}`);
           }
           if (!clientCounts[accessPoint][essid]) {
             clientCounts[accessPoint][essid] = 0;
-            console.log(`新しいSSIDを追加: ${essid} (AP: ${accessPoint})`);
           }
           clientCounts[accessPoint][essid]++;
-          console.log(`カウント更新: ${accessPoint} - ${essid} = ${clientCounts[accessPoint][essid]}`);
-        } else {
-          console.log('フィールド数が不足しているためスキップ');
         }
       }
     }
 
-    console.log('\n=== 最終的なclientCounts ===');
-    console.log(JSON.stringify(clientCounts, null, 2));
-    
     return clientCounts;
   }
 
@@ -289,24 +272,11 @@ function updateApData(apStatusInfo, clientCounts, maxClients) {
   apData.mtime = Math.floor(Date.now() / 1000);
   apData.aps = [];
 
-  // デバッグ用：clientCountsの要素数を出力
-  console.log('\n=== clientCountsの要素数 ===');
-  console.log('clientCountsのキー数:', Object.keys(clientCounts).length);
-  console.log('clientCountsの内容:', JSON.stringify(clientCounts, null, 2));
-  
   // APデータの構築
   for (let i = 1; i <= 16; i++) {
     const apName = `ap_${String(i).padStart(2, '0')}`;
     const currentApInfo = apStatusInfo[apName] || { ch: '-', dbm: '-' };
     const ssids = [];
-
-    // デバッグ用：各APのclientCountsの状態を出力
-    console.log(`\nAP: ${apName}`);
-    console.log('clientCountsに存在するか:', !!clientCounts[apName]);
-    if (clientCounts[apName]) {
-      console.log('SSID数:', Object.keys(clientCounts[apName]).length);
-      console.log('SSID一覧:', Object.keys(clientCounts[apName]));
-    }
 
     if (clientCounts[apName]) {
       for (const [ssidName, count] of Object.entries(clientCounts[apName])) {
@@ -332,17 +302,6 @@ function updateApData(apStatusInfo, clientCounts, maxClients) {
     });
   }
 
-  // 結果出力
-  console.log('\n=== アクセスポイントの状態 ===');
-  for (const ap of apData.aps) {
-    console.log(`${ap.name} ${ap.channel} / ${ap.power}`);
-    if (ap.ssids.length > 0) {
-      for (const ssid of ap.ssids) {
-        console.log(`  ${ssid.name}: ${ssid.count}台 (レベル${ssid.level})`);
-      }
-    }
-  }
-  
   addLogEntry('APデータを更新しました');
 }
 
