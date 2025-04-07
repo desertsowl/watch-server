@@ -1,3 +1,8 @@
+// ==================================================
+//  watch-server  アクセスポイント監視スクリプト
+//  http://watch.local:5000/
+// ==================================================
+
 const express = require('express');
 const app = express();
 const PORT = 5000;

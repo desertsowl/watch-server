@@ -50,6 +50,7 @@
         .lv9 { background-color: #EF5350; }
         .lv10 { background-color: #C0211D; }
 
+        /* アクセスポイント情報テーブル */
         table#info_ap {
             margin: auto;
             width: 95%;
@@ -66,71 +67,52 @@
             height: 50%;
         }
 
+        /* アクセスポイントの情報 */
         table#info_ap td div.info_ap {
-            background-color: #ccc;
-            line-height: 0.9em;
+            background-color: #ffc;
+            line-height: 0.4em;
+            padding:0.2em 0.1em 0.3em 0.1em;
         }
         
         table#info_ap td span.ap_name {
-            line-height: 0.5em;
             font-weight: 900;
             font-size: 0.8em;
         }
 
         table#info_ap td span.radio {
-            line-height: 0.5em;
             color: rgba(0, 0, 0, 0.7);
             font-size: 0.5em;
+            line-height: 0.2em;
         }
 
+        /* SSIDの情報 */
+        table#info_ap td div.info_ssid {
+            width: 100%;
+            height: 3.5em;
+            text-align: center;
+            line-height: 1.1em;
+        }
+
+        table#info_ap td span.ssid_name {
+            align-items: center;
+            font-size: 0.7em;
+            font-weight: 900;
+            width: 100%;
+        }
         table#info_ap td span.maxcount {
             line-height: 0.5em;
             color: rgba(0, 0, 0, 0.7);
             font-size: 0.5em;
-            background-color: #0ff;
-        }
-
-        table#info_ap td div.info_ssid_box {
-            justify-content: center;
-            margin:0; padding:0;
-            background-color: #ff0;
-        }
-
-        table#info_ap td p.info_ssid {
-            width: 100%;
-            height: 3.5em;
-            background-color: #00f;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            text-align: center;
-            position: relative;
         }
 
         table#info_ap td span.cnt {
-            margin-bottom: 0.3em;
             font-size: 2.2em;
             font-weight: 900;
-            line-height: 0.7;
-            background-color: #0f0;
-            position: absolute;
-            bottom: 0.2em;
+            line-height: 0.8em;
             width: 100%;
             text-align: center;
         }
 
-        table#info_ap td span.ssid {
-            align-items: center;
-            font-size: 0.7em;
-            font-weight: 900;
-            background-color: #f0f;
-            line-height: 0.7em;
-            position: absolute;
-            top: 0.2em;
-            width: 100%;
-            text-align: center;
-        }
 
         /* ログセクションのスタイル */
         .log-section { 
@@ -246,20 +228,18 @@
                     <td class="ap">
                         <div class="info_ap">
                             <span class="ap_name"><%= ap.name %></span>
-                            <span class="radio"><%= ap.channel %>ch&nbsp;/&nbsp;<%= ap.power %>dBm</span>
+                            <span class="radio"><%= ap.channel %>ch/<%= ap.power %>dBm</span>
                         </div>
-                        <div class="info_ssid_box">
                             <% if(ap.ssids && ap.ssids.length > 0) { %>
                                 <% ap.ssids.forEach(function(ssid) { %>
-                                    <p class="info_ssid lv<%= ssid.level %>">
-                                    <span class="ssid"><%= ssid.name %></span>
+                                    <div class="info_ssid lv<%= ssid.level %>">
+                                    <span class="ssid_name"><%= ssid.name %></span>
                                     <span class="maxcount">(<%= ssid.maxCount %>台)</span>
-                                    <br>
+                                    <br style="line-height:0.1em;">
                                         <span class="cnt"><%= ssid.count %><span>台</span>
-                                    </p>
+                                    </div>
                                 <% }); %>
                             <% } %>
-                        </div>
                     </td>
                 <% } %>
             </tr>
