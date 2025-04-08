@@ -113,6 +113,23 @@
             text-align: center;
         }
 
+        /* 情報バーのスタイル */
+        #infobar {
+            position: fixed;
+            bottom: 10px;
+            right: 10px;
+            background-color: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-size: 0.8em;
+            z-index: 1000;
+        }
+
+        #ptime {
+            font-family: monospace;
+        }
+
     </style>
 </head>
 
@@ -132,7 +149,7 @@
             <tr>
                 <% for(let col = 0; col < 8; col++) { %>
                     <% const ap = aps[row * 8 + col]; %>
-                    <td class="ap">
+                    <td class="ap lv<%= ap.level %>" data-ap="<%= ap.name %>">
                         <div class="info_ap">
                             <span class="ap_name"><%= ap.name %></span>
                             <span class="radio"><%= ap.channel %>ch/<%= ap.power %>dBm</span>
@@ -153,6 +170,10 @@
         <% } %>
     </table>
 
+    <div id="infobar">
+        <div id="ptime"><%= new Date(mtime * 1000).toLocaleString('ja-JP') %></div>
+    </div>
+
     <script>
         const modified = document.getElementById("mtime");
         const modified_sec = modified.value;
@@ -165,5 +186,8 @@
         }
         document.close;
     </script>
+    
+    <!-- WebSocket接続用のスクリプトを読み込む -->
+    <script src="/js/main.js"></script>
 </body>
 </html> 
