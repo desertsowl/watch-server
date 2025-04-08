@@ -138,6 +138,9 @@ function extractor() {
     let inShowAps = false;
     let lineCount = 0;
 
+    // クライアント接続情報を抽出
+    const clientCounts = extractClientInfo(lines);
+
     for (const line of lines) {
       if (line.includes('show aps')) {
         inShowAps = true;
@@ -150,11 +153,30 @@ function extractor() {
         if (lineCount > 5 && line.match(/^ap_\d{2}\s/)) {
           const fields = line.trim().split(/\s+/);
           if (fields.length >= 12) {
-            apInfo[fields[0]] = {
-              ch: fields[10],
-              dbm: fields[11],
-              zone: fields[8]
-            };
+            const apName = fields[0];
+            const ssidString = fields[8];
+            
+            // APが存在しない場合は初期化
+            if (!apInfo[apName]) {
+              apInfo[apName] = {
+                ch: fields[10],
+                dbm: fields[11],
+                ssids: []
+              };
+            }
+            
+            // SSIDをカンマで分割して処理
+            const ssidList = ssidString.split(',').map(s => s.trim());
+            for (const ssid of ssidList) {
+              // 接続台数を取得
+              const clientCount = clientCounts[apName]?.[ssid] || 0;
+              
+              // SSID情報を追加
+              apInfo[apName].ssids.push({
+                name: ssid,
+                clientCount: clientCount
+              });
+            }
           }
         }
         if (line.match(/ap_\d+#/)) {
@@ -189,7 +211,7 @@ function extractor() {
         const fields = line.split(/\s{2,}/);
 
         if (fields.length >= 7) {
-          const essid = fields[4].trim();
+          const ssid = fields[4].trim();
           const accessPoint = fields[5].trim();
 
           if (!accessPoint.startsWith('ap_')) {
@@ -199,10 +221,10 @@ function extractor() {
           if (!clientCounts[accessPoint]) {
             clientCounts[accessPoint] = {};
           }
-          if (!clientCounts[accessPoint][essid]) {
-            clientCounts[accessPoint][essid] = 0;
+          if (!clientCounts[accessPoint][ssid]) {
+            clientCounts[accessPoint][ssid] = 0;
           }
-          clientCounts[accessPoint][essid]++;
+          clientCounts[accessPoint][ssid]++;
         }
       }
     }
@@ -214,7 +236,7 @@ function extractor() {
   function extractMaxClients(lines) {
     const maxClients = {};
     let inAmpAudit = false;
-    let currentEssid = '';
+    let currentSsid = '';
 
     for (const line of lines) {
       if (line.includes('show amp-audit')) {
@@ -224,16 +246,16 @@ function extractor() {
 
       if (inAmpAudit) {
         if (line.startsWith('wlan ssid-profile')) {
-          currentEssid = line.split(' ').pop().trim();
+          currentSsid = line.split(' ').pop().trim();
         } else if (line.startsWith(' max-clients-threshold')) {
           const maxValue = parseInt(line.trim().split(' ')[1], 10);
-          if (currentEssid) {
-            maxClients[currentEssid] = maxValue;
+          if (currentSsid) {
+            maxClients[currentSsid] = maxValue;
           }
         }
         if (line.trim() === '') {
           inAmpAudit = false;
-          currentEssid = '';
+          currentSsid = '';
         }
       }
     }
@@ -276,22 +298,23 @@ function updateApData(apStatusInfo, clientCounts, maxClients) {
   // APデータの構築
   for (let i = 1; i <= 16; i++) {
     const apName = `ap_${String(i).padStart(2, '0')}`;
-    const currentApInfo = apStatusInfo[apName] || { ch: '-', dbm: '-' };
+    const currentApInfo = apStatusInfo[apName] || { ch: '-', dbm: '-', ssids: [] };
     const ssids = [];
 
-    if (clientCounts[apName]) {
-      for (const [ssidName, count] of Object.entries(clientCounts[apName])) {
-        const maxCount = maxClients[ssidName] || 0;
-        const percentage = maxCount > 0 ? Math.floor((count / maxCount) * 100) : 0;
-        const level = Math.min(Math.floor(percentage / 10), 10);
+    // 現在のAPに割り当てられているSSIDの情報を追加
+    for (const ssidInfo of currentApInfo.ssids) {
+      const ssidName = ssidInfo.name;
+      const count = ssidInfo.clientCount || 0;
+      const maxCount = maxClients[ssidName] || 0;
+      const percentage = maxCount > 0 ? Math.floor((count / maxCount) * 100) : 0;
+      const level = Math.min(Math.floor(percentage / 10), 10);
 
-        ssids.push({
-          name: ssidName,
-          count: count,
-          maxCount: maxCount,
-          level: level
-        });
-      }
+      ssids.push({
+        name: ssidName,
+        count: count,
+        maxCount: maxCount,
+        level: level
+      });
     }
 
     apData.aps.push({
@@ -305,4 +328,3 @@ function updateApData(apStatusInfo, clientCounts, maxClients) {
 
   addLogEntry('APデータを更新しました');
 }
-
