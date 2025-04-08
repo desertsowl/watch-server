@@ -71,10 +71,18 @@ function updateDisplay(data) {
     mtimeElement.value = data.mtime;
   }
   
-  // 最終更新時間の表示を更新
+  // 最終更新時刻の表示を更新
   const ptimeElement = document.getElementById('ptime');
   if (ptimeElement) {
-    ptimeElement.textContent = mtime.toLocaleString('ja-JP');
+    ptimeElement.textContent = mtime.toLocaleString('ja-JP', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      weekday: 'short',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    });
   }
   
   console.log('表示を更新しました');

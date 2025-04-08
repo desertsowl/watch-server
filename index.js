@@ -24,8 +24,7 @@ app.use(express.static('public'));
 // グローバル変数としてAPデータを保持
 let apData = {
   mtime: Math.floor(Date.now() / 1000),
-  aps: [],
-  dhcp: {}
+  aps: []
 };
 
 // WebSocketサーバーの作成
@@ -70,140 +69,88 @@ if (!fs.existsSync(logDir)) {
   fs.mkdirSync(logDir);
 }
 
-// ================================================
-//  定数
-// ================================================
-const TELNET_HOST = '172.21.7.220';
-const TELNET_PORT = 23;
-const TELNET_USERNAME = 'admin';
-const TELNET_PASSWORD = 'k1kuk@w@';
+// ------------------------------------------------
+//    機器からログを収集
+// ------------------------------------------------
+function logger() {
+  const client = new net.Socket();
+  let buffer = '';
+  const logStream = fs.createWriteStream(path.join(logDir, 'ap.log'), { flags: 'w' });
+  let currentState = 'login'; // 状態管理を追加
+  const commands = [
+    'show aps',
+    'show amp-audit | include (ssid-profile|max-clients-threshold)',
+    'show clients'
+  ];
+  let currentCommand = 0;
 
-// スイッチ接続情報
-const SWITCH_HOST = '172.20.7.253';
-const SWITCH_PORT = 23;
-const SWITCH_PASSWORD = 'CX1U53AM';
+  addLogEntry('telnetサーバーに接続を試みています...');
 
-// ================================================
-//  関数
-// ================================================
-
-// スイッチからDHCP情報を取得する関数
-function getSwitchDhcpInfo() {
-  return new Promise((resolve, reject) => {
-    const client = new net.Socket();
-    let data = '';
-    
-    client.connect(SWITCH_PORT, SWITCH_HOST, () => {
-      addLogEntry(`スイッチ ${SWITCH_HOST} に接続しました`);
-    });
-    
-    client.on('data', (chunk) => {
-      data += chunk.toString();
-    });
-    
-    client.on('end', () => {
-      addLogEntry(`スイッチ ${SWITCH_HOST} との接続が終了しました`);
-      
-      // 改行コードを変換
-      data = data.replace(/\r\n/g, '\n');
-      
-      // DHCP情報を抽出
-      const dhcpInfo = extractDhcpInfo(data);
-      resolve(dhcpInfo);
-    });
-    
-    client.on('error', (err) => {
-      addLogEntry(`スイッチ接続エラー: ${err.message}`);
-      reject(err);
-    });
-    
-    // ログインシーケンス
-    setTimeout(() => {
-      client.write(SWITCH_PASSWORD + '\r');
-      setTimeout(() => {
-        client.write('display dhcp server stat pool 0\r');
-        setTimeout(() => {
-          client.end();
-        }, 3000);
-      }, 1000);
-    }, 1000);
+  client.connect(23, '172.21.7.220', () => {
+    console.log('telnetサーバーに接続しました');
+    logStream.write('telnetサーバーに接続しました\n');
+    addLogEntry('telnetサーバーに接続しました');
   });
-}
 
-// DHCP情報を抽出する関数
-function extractDhcpInfo(lines) {
-  const dhcpInfo = {};
-  let inDhcpInfo = false;
-  let poolName = '';
-  
-  const lineArray = lines.split('\n');
-  for (const line of lineArray) {
-    if (line.includes('display dhcp server stat')) {
-      inDhcpInfo = true;
-      continue;
-    }
-    
-    if (inDhcpInfo) {
-      if (line.includes('Pool utilization')) {
-        const match = line.match(/Pool utilization:\s+(\d+)%/);
-        if (match && poolName) {
-          dhcpInfo[poolName] = parseInt(match[1], 10);
-        }
-      } else if (line.includes('Pool')) {
-        const match = line.match(/Pool\s+(\d+)/);
-        if (match) {
-          poolName = match[1];
-        }
-      }
-      
-      if (line.trim() === '') {
-        inDhcpInfo = false;
-        poolName = '';
-      }
-    }
-  }
-  
-  return dhcpInfo;
-}
+  client.on('data', (data) => {
+    buffer += data.toString();
+    logStream.write(data.toString());
 
-// 機器からログを収集する関数
-async function logger() {
-  try {
-    // APからログを取得
-    const apLog = await getApLog();
-    addLogEntry('APからログを取得しました');
-    
-    // スイッチからDHCP情報を取得
-    const dhcpInfo = await getSwitchDhcpInfo();
-    addLogEntry('スイッチからDHCP情報を取得しました');
-    
-    // AP情報を抽出
-    const apStatusInfo = extractApStatus(apLog);
-    addLogEntry('AP情報を抽出しました');
-    
-    // クライアント接続情報を抽出
-    const clientCounts = extractClientInfo(apLog);
-    addLogEntry('クライアント接続情報を抽出しました');
-    
-    // SSID最大接続数を抽出
-    const maxClients = extractMaxClients(apLog);
-    addLogEntry('SSID最大接続数を抽出しました');
-    
-    // APデータを更新
-    updateApData(apStatusInfo, clientCounts, maxClients);
-    
-    // DHCP情報をAPデータに追加
-    apData.dhcp = dhcpInfo;
-    addLogEntry('DHCP情報を追加しました');
-    
-    // ログをファイルに保存
-    fs.writeFileSync(path.join(__dirname, 'log', 'ap.log'), apLog);
-    addLogEntry('ログをファイルに保存しました');
-    
-  } catch (error) {
-    addLogEntry(`エラーが発生しました: ${error.message}`);
-    console.error(error);
-  }
+    switch (currentState) {
+      case 'login':
+        if (buffer.includes('User:')) {
+          client.write('admin\r\n');
+          buffer = '';
+        } else if (buffer.includes('Password:')) {
+          client.write('k1kuk@w@\r\n');
+          buffer = '';
+        } else if (buffer.match(/ap_\d+#/)) {
+          currentState = 'commands';
+          buffer = '';
+          // 最初のコマンドを実行
+          client.write(commands[currentCommand] + '\r\n');
+          logStream.write(`\n=== 実行コマンド: ${commands[currentCommand]} ===\n`);
+          addLogEntry(`コマンド実行: ${commands[currentCommand]}`);
+        }
+        break;
+
+      case 'commands':
+        // プロンプトが表示されたら次のコマンドを実行
+        if (buffer.match(/ap_\d+#/)) {
+          currentCommand++;
+          buffer = '';
+
+          if (currentCommand < commands.length) {
+            // 次のコマンドを実行
+            client.write(commands[currentCommand] + '\r\n');
+            logStream.write(`\n=== 実行コマンド: ${commands[currentCommand]} ===\n`);
+            addLogEntry(`コマンド実行: ${commands[currentCommand]}`);
+          } else {
+            // 全コマンド完了後にログアウト
+            client.write('exit\r\n');
+            client.end();
+            addLogEntry('全コマンド実行完了、ログアウトします');
+          }
+        }
+        break;
+    }
+  });
+
+  client.on('close', () => {
+    console.log('接続が閉じられました');
+    logStream.write('接続が閉じられました\n');
+    logStream.end();
+    addLogEntry('telnet接続が閉じられました');
+
+    extractor();  // ログからデータを抽出
+  });
+
+  client.on('error', (err) => {
+    console.error('エラーが発生しました:', err);
+    logStream.write(`エラーが発生しました: ${err}\n`);
+    logStream.end();
+    addLogEntry(`エラーが発生しました: ${err}`, 'error');
+  });
 }
 
 // ------------------------------------------------

@@ -113,23 +113,6 @@
             text-align: center;
         }
 
-        /* 情報バーのスタイル */
-        #infobar {
-            position: fixed;
-            bottom: 10px;
-            right: 10px;
-            background-color: rgba(0, 0, 0, 0.7);
-            color: white;
-            padding: 5px 10px;
-            border-radius: 5px;
-            font-size: 0.8em;
-            z-index: 1000;
-        }
-
-        #ptime {
-            font-family: monospace;
-        }
-
     </style>
 </head>
 
@@ -148,19 +131,19 @@
         <% for(let row = 0; row < 2; row++) { %>
             <tr>
                 <% for(let col = 0; col < 8; col++) { %>
-                    <% const ap = aps[row * 8 + col]; %>
-                    <td class="ap lv<%= ap.level %>" data-ap="<%= ap.name %>">
+                    <% const ap = aps[row * 8 + col] || { name: `ap_${String(row * 8 + col + 1).padStart(2, '0')}`, channel: '-', power: '-', level: 0, ssids: [] }; %>
+                    <td class="ap lv<%= ap.level || 0 %>" data-ap="<%= ap.name %>">
                         <div class="info_ap">
                             <span class="ap_name"><%= ap.name %></span>
                             <span class="radio"><%= ap.channel %>ch/<%= ap.power %>dBm</span>
                         </div>
                             <% if(ap.ssids && ap.ssids.length > 0) { %>
                                 <% ap.ssids.forEach(function(ssid) { %>
-                                    <div class="info_ssid lv<%= ssid.level %>">
+                                    <div class="info_ssid lv<%= ssid.level || 0 %>">
                                     <span class="ssid_name"><%= ssid.name %></span>
-                                    <span class="maxcount">(<%= ssid.maxCount %>台)</span>
+                                    <span class="maxcount">(<%= ssid.maxCount || 0 %>台)</span>
                                     <br style="line-height:0.1em;">
-                                        <span class="cnt"><%= ssid.count %><span>台</span>
+                                        <span class="cnt"><%= ssid.count || 0 %><span>台</span>
                                     </div>
                                 <% }); %>
                             <% } %>
@@ -169,10 +152,6 @@
             </tr>
         <% } %>
     </table>
-
-    <div id="infobar">
-        <div id="ptime"><%= new Date(mtime * 1000).toLocaleString('ja-JP') %></div>
-    </div>
 
     <script>
         const modified = document.getElementById("mtime");
@@ -186,6 +165,15 @@
         }
         document.close;
     </script>
+    
+    <!-- 最終更新時刻を表示するテーブル -->
+    <table id="infobar" style="position: fixed; bottom: 0; right: 0; width: 100%; background-color: #f0f0f0; border-top: 1px solid #ccc;">
+        <tr>
+            <td id="ptime" style="text-align: right; padding: 5px;">
+                <%= new Date(mtime * 1000).toLocaleString('ja-JP', {year: 'numeric', month: '2-digit', day: '2-digit', weekday: 'short', hour: '2-digit', minute: '2-digit', second: '2-digit'}) %>
+            </td>
+        </tr>
+    </table>
     
     <!-- WebSocket接続用のスクリプトを読み込む -->
     <script src="/js/main.js"></script>
