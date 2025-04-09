@@ -13,6 +13,7 @@ const net = require('net');
 const fs = require('fs');
 const path = require('path');
 const WebSocket = require('ws');
+const { exec } = require('child_process');
 
 // EJSテンプレートエンジンの設定
 app.set('view engine', 'ejs');
@@ -20,6 +21,27 @@ app.set('views', path.join(__dirname, 'views'));
 
 // 静的ファイルの提供を有効化
 app.use(express.static('public'));
+
+// キオスクモードでブラウザを起動するエンドポイント
+app.get('/launch-kiosk', (req, res) => {
+  const browserCommand = process.platform === 'linux' 
+    ? 'chromium-browser --kiosk --app=http://localhost:5000'
+    : (process.platform === 'darwin' 
+      ? 'open -a "Google Chrome" --args --kiosk --app=http://localhost:5000'
+      : 'start chrome --kiosk --app=http://localhost:5000');
+  
+  exec(browserCommand, (error, stdout, stderr) => {
+    if (error) {
+      addLogEntry(`ブラウザ起動エラー: ${error.message}`, 'error');
+      return res.status(500).send({ error: error.message });
+    }
+    if (stderr) {
+      addLogEntry(`ブラウザ起動警告: ${stderr}`, 'warning');
+    }
+    addLogEntry('キオスクモードでブラウザを起動しました');
+    res.send({ success: true });
+  });
+});
 
 // グローバル変数としてAPデータを保持
 let apData = {
@@ -82,312 +104,356 @@ function logger() {
   isLogging = true;
   addLogEntry('ログ収集プロセスを開始します。');
 
-  const client = new net.Socket();
-  let buffer = '';
-  const logStream = fs.createWriteStream(path.join(logDir, 'ap.log'), { flags: 'w' });
-  let currentState = 'login'; // 状態管理を追加
-  const commands = [
-    'show aps',
-    'show amp-audit | include (ssid-profile|max-clients-threshold)',
-    'show clients'
-  ];
-  let currentCommand = 0;
+  // 共通変数
+  const logPath = path.join(logDir, 'ap.log');
+  const logStream = fs.createWriteStream(logPath, { flags: 'w' });
+  let isComplete = false; // 収集処理が完了したかどうかを追跡
 
-  addLogEntry('APサーバに接続を試みています...');
-
-  client.connect(23, '172.21.7.220', () => {
-    console.log('APサーバに接続しました');
-    logStream.write('APサーバに接続しました\n');
-    addLogEntry('APサーバに接続しました');
+  // ログストリームエラーハンドラを追加
+  logStream.on('error', (streamErr) => {
+    console.error('ログストリームエラー:', streamErr);
+    addLogEntry(`ログストリームエラー: ${streamErr}`, 'error');
   });
 
-  client.on('data', (data) => {
-    buffer += data.toString();
-    logStream.write(data.toString());
-
-    switch (currentState) {
-      case 'login':
-        if (buffer.includes('User:')) {
-          client.write('admin\r\n');
-          buffer = '';
-        } else if (buffer.includes('Password:')) {
-          client.write('k1kuk@w@\r\n');
-          buffer = '';
-        } else if (buffer.match(/ap_\d+#/)) {
-          currentState = 'commands';
-          buffer = '';
-          // 最初のコマンドを実行
-          client.write(commands[currentCommand] + '\r\n');
-          logStream.write(`\n=== 実行コマンド: ${commands[currentCommand]} ===\n`);
-          addLogEntry(`コマンド実行: ${commands[currentCommand]}`);
-        }
-        break;
-
-      case 'commands':
-        // プロンプトが表示されたら次のコマンドを実行
-        if (buffer.match(/ap_\d+#/)) {
-          currentCommand++;
-          buffer = '';
-
-          if (currentCommand < commands.length) {
-            // 次のコマンドを実行
-            client.write(commands[currentCommand] + '\r\n');
-            logStream.write(`\n=== 実行コマンド: ${commands[currentCommand]} ===\n`);
-            addLogEntry(`コマンド実行: ${commands[currentCommand]}`);
-          } else {
-            // 全コマンド完了後にログアウト
-            client.write('exit\r\n');
-            client.end();
-            addLogEntry('全コマンド実行完了、ログアウトします');
-          }
-        }
-        break;
-    }
-  });
-
-  client.on('close', () => {
-    console.log('接続が閉じられました');
-    logStream.write('接続が閉じられました\n');
-    logStream.end();
-    addLogEntry('APサーバ接続が閉じられました');
-
-    // SW10からDHCP情報を取得
-    getDhcpInfo();
-
-    isLogging = false;
-    addLogEntry('ログ収集プロセスが完了しました。');
-  });
-
-  client.on('error', (err) => {
-    console.error('エラーが発生しました:', err);
-    logStream.write(`エラーが発生しました: ${err}\n`);
-    logStream.end();
-    addLogEntry(`APサーバ接続でエラーが発生しました: ${err}`, 'error');
-  });
-}
-
-// SW10からDHCP情報を取得する関数
-function getDhcpInfo() {
-  const client = new net.Socket();
-  let buffer = '';
-  // ログストリームをまだ開かない！クライアント接続成功後に開く
-  let logStreamDhcp = null;
-  let currentState = 'login';
-  const command = 'display dhcp server stat pool 0';
-  let commandExecuted = false;
-  let sessionEnded = false; // セッションが終了したかを追跡
-  let loginAttempts = 0;
-  const maxLoginAttempts = 3;
-
-  addLogEntry('SW10に接続を試みています...');
-
-  // クライアントの接続が閉じられたことを追跡する関数
-  function endSession() {
-    if (sessionEnded) {
-      console.log('セッションは既に終了しています');
-      return; // 既に終了処理済みなら何もしない
-    }
-    
-    // セッション終了フラグを最初に設定
-    sessionEnded = true;
-    console.log('セッション終了処理を開始します');
+  // 最終的な処理終了と次ステップへの移行
+  function finishCollection(success = true) {
+    if (isComplete) return; // 既に完了処理済みなら何もしない
+    isComplete = true;
 
     // ログストリームが存在し、まだwritableなら閉じる
-    if (logStreamDhcp && logStreamDhcp.writable) {
-      try {
-        logStreamDhcp.end('SW10接続が閉じられました\n', () => {
-          console.log('ログストリームを正常に閉じました');
-          addLogEntry('SW10ログストリームを閉じました。データ抽出を開始します。');
-          // データ抽出処理は別タイミングで実行
-          process.nextTick(() => {
-            try {
-              extractor(); // ストリームが確実に閉じられた後にデータ抽出を実行
-            } catch (extractErr) {
-              console.error('データ抽出中にエラーが発生しました:', extractErr);
-              addLogEntry(`データ抽出エラー: ${extractErr}`, 'error');
-              isLogging = false; // 確実にフラグを下ろす
-            }
-          });
-        });
-      } catch (endErr) {
-        console.error('ログストリーム終了エラー:', endErr);
-        addLogEntry(`ログストリーム終了エラー: ${endErr}`, 'error');
-        // エラーが発生した場合も、データ抽出を試みる
-        try {
+    if (logStream.writable) {
+      logStream.end('データ収集完了\n', () => {
+        addLogEntry('ログストリームを閉じました。データ抽出を開始します。');
+        // 少し遅延を入れてからデータ抽出を実行
+        process.nextTick(() => {
           extractor();
-        } catch (extractErr) {
-          console.error('データ抽出中にエラーが発生しました:', extractErr);
-          isLogging = false;
-        }
-      }
+        });
+      });
     } else {
-      // ストリームが存在しないか、既に閉じられている場合
-      console.log('ログストリームは既に閉じられているか、利用できません');
-      addLogEntry('SW10ログストリームが利用できないため、データ抽出を直接開始します。');
-      try {
-        extractor();
-      } catch (extractErr) {
-        console.error('データ抽出中にエラーが発生しました:', extractErr);
-        addLogEntry(`データ抽出エラー: ${extractErr}`, 'error');
-        isLogging = false; // 確実にフラグを下ろす
-      }
+      addLogEntry('ログストリームが既に閉じられています。データ抽出を直接開始します。');
+      extractor();
     }
   }
 
-  client.connect(23, '172.20.7.253', () => {
-    // 接続が確立された後にログストリームを開く
-    logStreamDhcp = fs.createWriteStream(path.join(logDir, 'ap.log'), { flags: 'a' });
-    
-    // ストリームエラーハンドラを追加
-    logStreamDhcp.on('error', (streamErr) => {
-      console.error('SW10ログストリームエラー:', streamErr);
-      addLogEntry(`SW10ログストリームエラー: ${streamErr}`, 'error');
+  // ----- 1. APサーバからの情報収集 -----
+  function collectFromAP() {
+    const client = new net.Socket();
+    let buffer = '';
+    let currentState = 'login';
+    const commands = [
+      'show aps',
+      'show amp-audit | include (ssid-profile|max-clients-threshold)',
+      'show clients'
+    ];
+    let currentCommand = 0;
+    let apCollectionComplete = false; // AP情報収集が完了したかを追跡
+
+    addLogEntry('APサーバに接続を試みています...');
+
+    client.connect(23, '172.21.7.220', () => {
+      addLogEntry('APサーバに接続しました');
+      
+      // ログに接続情報を記録
+      if (logStream.writable) {
+        try {
+          logStream.write('APサーバに接続しました\n');
+        } catch (err) {
+          console.error('ログ書き込みエラー:', err);
+        }
+      }
     });
 
-    console.log('SW10に接続しました');
-    logStreamDhcp.write('\nSW10に接続しました\n');
-    addLogEntry('SW10に接続しました');
-  });
+    client.on('data', (data) => {
+      if (apCollectionComplete) return; // 収集完了後のデータは無視
 
-  client.on('data', (data) => {
-    if (sessionEnded) return; // セッション終了後のデータは無視
+      const dataStr = data.toString();
+      buffer += dataStr;
 
-    const dataStr = data.toString();
-    buffer += dataStr;
-    console.log(`SW10受信データ: ${dataStr}`);
-
-    // ログストリームが利用可能な場合のみ書き込み
-    if (logStreamDhcp && logStreamDhcp.writable) {
-      try {
-        logStreamDhcp.write(dataStr);
-      } catch (err) {
-        console.error('ログストリーム書き込みエラー:', err);
+      // ログに受信データを記録
+      if (logStream.writable) {
+        try {
+          logStream.write(dataStr);
+        } catch (err) {
+          console.error('データログ書き込みエラー:', err);
+        }
       }
-    }
 
-    switch (currentState) {
-      case 'login':
-        if (buffer.includes('Password:')) {
-          console.log('パスワードプロンプトを検出しました');
-          client.write('CX1U53AM\r\n');
-          buffer = '';
-        } else if (buffer.includes('>') || buffer.includes('#')) {
-          console.log('ログイン成功を検出しました');
-          currentState = 'commands';
-          buffer = '';
-          // 少し待ってからコマンドを実行
-          setTimeout(() => {
-            console.log('コマンドを実行します');
-            client.write(command + '\r\n');
-            // ログストリームに書き込む際に安全性チェックを追加
-            if (logStreamDhcp && logStreamDhcp.writable) {
+      switch (currentState) {
+        case 'login':
+          if (buffer.includes('User:')) {
+            client.write('admin\r\n');
+            buffer = '';
+          } else if (buffer.includes('Password:')) {
+            client.write('k1kuk@w@\r\n');
+            buffer = '';
+          } else if (buffer.match(/ap_\d+#/)) {
+            currentState = 'commands';
+            buffer = '';
+            // 最初のコマンドを実行
+            client.write(commands[currentCommand] + '\r\n');
+            
+            // ログにコマンド実行を記録
+            if (logStream.writable) {
               try {
-                logStreamDhcp.write(`\n=== 実行コマンド: ${command} ===\n`);
+                logStream.write(`\n=== 実行コマンド: ${commands[currentCommand]} ===\n`);
               } catch (err) {
                 console.error('コマンドログ書き込みエラー:', err);
               }
             }
-            addLogEntry(`SW10コマンド実行: ${command}`);
-            commandExecuted = true;
-          }, 1000);
-        } else if (buffer.includes('Login:') || buffer.includes('Username:')) {
-          console.log('ユーザー名プロンプトを検出しました');
-          // ユーザー名が不要な場合はEnterキーを送信
-          client.write('\r\n');
-          buffer = '';
-        } else if (buffer.includes('incorrect') || buffer.includes('Invalid')) {
-          console.log('ログイン失敗を検出しました');
-          loginAttempts++;
-          if (loginAttempts < maxLoginAttempts) {
-            buffer = '';
-            // 再試行
-            setTimeout(() => {
-              client.write('\r\n');
-            }, 1000);
-          } else {
-            addLogEntry('SW10ログイン失敗: 最大試行回数を超えました', 'error');
-            client.end();
+            
+            addLogEntry(`コマンド実行: ${commands[currentCommand]}`);
           }
-        }
-        break;
+          break;
 
-      case 'commands':
-        // プロンプトが表示されたらログアウト
-        if ((buffer.includes('>') || buffer.includes('#')) && commandExecuted) {
-          console.log('コマンド実行完了を検出しました');
-          // 既にセッション終了処理が行われていないことを確認
-          if (!sessionEnded) {
-            try {
-              client.write('exit\r\n');
-              // すぐにclient.end()を呼ぶのではなく、少し待ってから閉じる
+        case 'commands':
+          // プロンプトが表示されたら次のコマンドを実行
+          if (buffer.match(/ap_\d+#/)) {
+            currentCommand++;
+            buffer = '';
+
+            if (currentCommand < commands.length) {
+              // 次のコマンドを実行
+              client.write(commands[currentCommand] + '\r\n');
+              
+              // ログにコマンド実行を記録
+              if (logStream.writable) {
+                try {
+                  logStream.write(`\n=== 実行コマンド: ${commands[currentCommand]} ===\n`);
+                } catch (err) {
+                  console.error('コマンドログ書き込みエラー:', err);
+                }
+              }
+              
+              addLogEntry(`コマンド実行: ${commands[currentCommand]}`);
+            } else {
+              // 全コマンド完了後にログアウト
+              apCollectionComplete = true; // 収集完了フラグを設定
+              try {
+                client.write('exit\r\n');
+                client.end();
+                addLogEntry('全コマンド実行完了、ログアウトします');
+              } catch (err) {
+                console.error('AP接続終了エラー:', err);
+                client.destroy();
+              }
+            }
+          }
+          break;
+      }
+    });
+
+    client.on('close', () => {
+      addLogEntry('APサーバ接続が閉じられました');
+      
+      // ログに接続終了を記録
+      if (logStream.writable) {
+        try {
+          logStream.write('APサーバ接続が閉じられました\n');
+        } catch (err) {
+          console.error('ログ書き込みエラー:', err);
+        }
+      }
+
+      // AP情報収集完了、SW10からの情報収集に移行
+      collectFromSW10();
+    });
+
+    client.on('error', (err) => {
+      console.error('APサーバ接続でエラーが発生しました:', err);
+      addLogEntry(`APサーバ接続でエラーが発生しました: ${err}`, 'error');
+      
+      // ログにエラーを記録
+      if (logStream.writable) {
+        try {
+          logStream.write(`APサーバ接続でエラーが発生しました: ${err}\n`);
+        } catch (writeErr) {
+          console.error('エラーログ書き込み失敗:', writeErr);
+        }
+      }
+
+      // エラーがあっても次のステップに進む
+      collectFromSW10();
+    });
+  }
+
+  // ----- 2. SW10からのDHCP情報収集 -----
+  function collectFromSW10() {
+    const client = new net.Socket();
+    let buffer = '';
+    let currentState = 'login';
+    const command = 'display dhcp server stat pool 0';
+    let commandExecuted = false;
+    let sw10CollectionComplete = false; // SW10情報収集が完了したかを追跡
+    let loginAttempts = 0;
+    const maxLoginAttempts = 3;
+
+    addLogEntry('SW10に接続を試みています...');
+
+    client.connect(23, '172.20.7.253', () => {
+      addLogEntry('SW10に接続しました');
+      
+      // ログに接続情報を記録（追記モード）
+      if (logStream.writable) {
+        try {
+          logStream.write('\nSW10に接続しました\n');
+        } catch (err) {
+          console.error('ログ書き込みエラー:', err);
+        }
+      }
+    });
+
+    client.on('data', (data) => {
+      if (sw10CollectionComplete) return; // 収集完了後のデータは無視
+
+      const dataStr = data.toString();
+      buffer += dataStr;
+      console.log(`SW10受信データ: ${dataStr}`);
+
+      // ログに受信データを記録
+      if (logStream.writable) {
+        try {
+          logStream.write(dataStr);
+        } catch (err) {
+          console.error('ログストリーム書き込みエラー:', err);
+        }
+      }
+
+      switch (currentState) {
+        case 'login':
+          if (buffer.includes('Password:')) {
+            console.log('パスワードプロンプトを検出しました');
+            client.write('CX1U53AM\r\n');
+            buffer = '';
+          } else if (buffer.includes('>') || buffer.includes('#')) {
+            console.log('ログイン成功を検出しました');
+            currentState = 'commands';
+            buffer = '';
+            // 少し待ってからコマンドを実行
+            setTimeout(() => {
+              console.log('コマンドを実行します');
+              client.write(command + '\r\n');
+              
+              // ログにコマンド実行を記録
+              if (logStream.writable) {
+                try {
+                  logStream.write(`\n=== 実行コマンド: ${command} ===\n`);
+                } catch (err) {
+                  console.error('コマンドログ書き込みエラー:', err);
+                }
+              }
+              
+              addLogEntry(`SW10コマンド実行: ${command}`);
+              commandExecuted = true;
+            }, 1000);
+          } else if (buffer.includes('Login:') || buffer.includes('Username:')) {
+            console.log('ユーザー名プロンプトを検出しました');
+            // ユーザー名が不要な場合はEnterキーを送信
+            client.write('\r\n');
+            buffer = '';
+          } else if (buffer.includes('incorrect') || buffer.includes('Invalid')) {
+            console.log('ログイン失敗を検出しました');
+            loginAttempts++;
+            if (loginAttempts < maxLoginAttempts) {
+              buffer = '';
+              // 再試行
               setTimeout(() => {
-                if (!sessionEnded) {
+                client.write('\r\n');
+              }, 1000);
+            } else {
+              addLogEntry('SW10ログイン失敗: 最大試行回数を超えました', 'error');
+              sw10CollectionComplete = true;
+              client.end();
+            }
+          }
+          break;
+
+        case 'commands':
+          // プロンプトが表示されたらログアウト
+          if ((buffer.includes('>') || buffer.includes('#')) && commandExecuted) {
+            console.log('コマンド実行完了を検出しました');
+            if (!sw10CollectionComplete) {
+              sw10CollectionComplete = true; // 収集完了フラグを設定
+              try {
+                client.write('exit\r\n');
+                // すぐにclient.end()を呼ぶのではなく、少し待ってから閉じる
+                setTimeout(() => {
                   try {
                     client.end();
                     addLogEntry('SW10コマンド実行完了、ログアウトします');
                   } catch (endErr) {
                     console.error('接続終了エラー:', endErr);
-                    // 接続を強制的に切断
                     client.destroy();
                   }
-                }
-              }, 500); // 500ms待機
-            } catch (writeErr) {
-              console.error('exit書き込みエラー:', writeErr);
-              // 書き込みエラーの場合は接続を強制的に切断
-              client.destroy();
-              addLogEntry('SW10コマンド実行後の終了処理でエラーが発生しました');
+                }, 500);
+              } catch (writeErr) {
+                console.error('exit書き込みエラー:', writeErr);
+                client.destroy();
+                addLogEntry('SW10コマンド実行後の終了処理でエラーが発生しました');
+              }
             }
           }
-        }
-        break;
-    }
-  });
-
-  client.on('close', () => {
-    console.log('SW10接続が閉じられました');
-    addLogEntry('SW10接続が閉じられました');
-    endSession(); // 終了処理を集約
-  });
-
-  client.on('error', (err) => {
-    console.error('SW10接続でエラーが発生しました:', err);
-    addLogEntry(`SW10接続でエラーが発生しました: ${err}`, 'error');
-    
-    // エラー時のログ記録を試みる（書き込み可能な場合のみ）
-    if (logStreamDhcp && logStreamDhcp.writable) {
-      try {
-        logStreamDhcp.write(`SW10接続でエラーが発生しました: ${err}\n`);
-      } catch (writeErr) {
-        console.error('エラーログ書き込み失敗:', writeErr);
+          break;
       }
-    }
-    
-    // client.destroy()によってclose イベントが発生するため、
-    // ここではendSession()を直接呼び出さない
-    client.destroy();
-    
-    // ただし、万が一closeイベントが発生しない場合に備えてフラグは設定
-    isLogging = false;
-  });
+    });
 
-  // タイムアウト処理
-  setTimeout(() => {
-    if (!sessionEnded && !client.destroyed) {
-      console.log('SW10接続がタイムアウトしました');
-      addLogEntry('SW10接続がタイムアウトしました', 'error');
+    client.on('close', () => {
+      console.log('SW10接続が閉じられました');
+      addLogEntry('SW10接続が閉じられました');
       
-      if (logStreamDhcp && logStreamDhcp.writable) {
+      // ログに接続終了を記録
+      if (logStream.writable) {
         try {
-          logStreamDhcp.write('SW10接続がタイムアウトしました\n');
+          logStream.write('SW10接続が閉じられました\n');
+        } catch (err) {
+          console.error('ログ書き込みエラー:', err);
+        }
+      }
+
+      // 全ての情報収集完了、データ抽出に移行
+      finishCollection();
+    });
+
+    client.on('error', (err) => {
+      console.error('SW10接続でエラーが発生しました:', err);
+      addLogEntry(`SW10接続でエラーが発生しました: ${err}`, 'error');
+      
+      // ログにエラーを記録
+      if (logStream.writable) {
+        try {
+          logStream.write(`SW10接続でエラーが発生しました: ${err}\n`);
         } catch (writeErr) {
-          console.error('タイムアウトログ書き込み失敗:', writeErr);
+          console.error('エラーログ書き込み失敗:', writeErr);
         }
       }
       
-      client.destroy(); // これによりcloseイベントが発生する
-    }
-  }, 30000);
+      // エラーがあってもクローズイベントが発生するはず
+      // client.destroy()によってcloseイベントが発生するため、直接finishCollectionは呼ばない
+      client.destroy();
+    });
+
+    // タイムアウト処理
+    setTimeout(() => {
+      if (!sw10CollectionComplete && !client.destroyed) {
+        console.log('SW10接続がタイムアウトしました');
+        addLogEntry('SW10接続がタイムアウトしました', 'error');
+        
+        // ログにタイムアウトを記録
+        if (logStream.writable) {
+          try {
+            logStream.write('SW10接続がタイムアウトしました\n');
+          } catch (writeErr) {
+            console.error('タイムアウトログ書き込み失敗:', writeErr);
+          }
+        }
+        
+        // 接続を強制的に切断
+        client.destroy();
+      }
+    }, 30000);
+  }
+
+  // 処理の開始: APサーバからの情報収集を開始
+  collectFromAP();
 }
 
 // ------------------------------------------------
@@ -575,7 +641,7 @@ function extractor() {
         console.error('ログデータの解析中にエラーが発生しました:', parseError);
         addLogEntry(`ログデータの解析エラー: ${parseError}`, 'error');
     } finally {
-        isLogging = false; // 抽出・更新処理完了または解析エラー時にフラグを下ろす
+        isLogging = false; // ログ収集プロセス全体の完了フラグをリセット
         addLogEntry('ログ収集プロセスが完了しました。');
     }
   });

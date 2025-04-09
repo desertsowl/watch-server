@@ -140,10 +140,38 @@
             padding: 5px;
         }
 
+        #kiosk-button, #kiosk-app-button {
+            position: fixed;
+            top: 10px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 5px 10px;
+            cursor: pointer;
+            z-index: 1000;
+            font-size: 14px;
+        }
+        
+        #kiosk-button {
+            right: 180px;
+        }
+        
+        #kiosk-app-button {
+            right: 10px;
+        }
+        
+        #kiosk-button:hover, #kiosk-app-button:hover {
+            background-color: #45a049;
+        }
+
     </style>
 </head>
 
 <body>
+    <button id="kiosk-button">フルスクリーン表示</button>
+    <button id="kiosk-app-button">アプリとして起動</button>
+    
     <table id="header">
         <tr>
             <td id="title">§&nbsp;WiFi AP Heatmap</td>
@@ -211,5 +239,42 @@
     
     <!-- WebSocket接続用のスクリプトを読み込む -->
     <script src="/js/main.js"></script>
+    
+    <!-- キオスクモード用スクリプト -->
+    <script>
+        // フルスクリーンボタン
+        document.getElementById('kiosk-button').addEventListener('click', function() {
+            // 新しいウィンドウをキオスクモードで開く
+            const kioskWindow = window.open(window.location.href, 'kioskWindow', 
+                'toolbar=no,location=no,directories=no,status=no,menubar=no,scrollbars=yes,resizable=yes,width='+screen.width+',height='+screen.height);
+            
+            // フルスクリーンリクエスト（ブラウザによって動作が異なる）
+            if (kioskWindow && kioskWindow.document.documentElement.requestFullscreen) {
+                kioskWindow.document.documentElement.requestFullscreen().catch(err => {
+                    console.log('フルスクリーン化できませんでした:', err);
+                });
+            }
+        });
+        
+        // アプリとして起動ボタン
+        document.getElementById('kiosk-app-button').addEventListener('click', function() {
+            fetch('/launch-kiosk')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        alert('起動エラー: ' + data.error);
+                    }
+                })
+                .catch(err => {
+                    console.error('ブラウザ起動エラー:', err);
+                });
+        });
+        
+        // 現在のウィンドウがポップアップの場合、ボタンを非表示
+        if (window.opener) {
+            document.getElementById('kiosk-button').style.display = 'none';
+            document.getElementById('kiosk-app-button').style.display = 'none';
+        }
+    </script>
 </body>
 </html> 
