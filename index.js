@@ -170,35 +170,100 @@ function logger() {
 function getDhcpInfo() {
   const client = new net.Socket();
   let buffer = '';
-  const logStreamDhcp = fs.createWriteStream(path.join(logDir, 'ap.log'), { flags: 'a' });
+  // ログストリームをまだ開かない！クライアント接続成功後に開く
+  let logStreamDhcp = null;
   let currentState = 'login';
   const command = 'display dhcp server stat pool 0';
   let commandExecuted = false;
+  let sessionEnded = false; // セッションが終了したかを追跡
   let loginAttempts = 0;
   const maxLoginAttempts = 3;
 
   addLogEntry('SW10に接続を試みています...');
 
-  client.connect(23, '172.20.7.253', () => {
-    // Add error handler to the stream itself
-    logStreamDhcp.on('error', (streamErr) => {
-      console.error('SW10 Log Stream Error:', streamErr);
-      addLogEntry(`SW10ログストリームエラー: ${streamErr}`, 'error');
-      // Avoid setting isLogging=false here, let client handlers manage it.
-    });
-    console.log('SW10に接続しました');
-    if (logStreamDhcp.writable) {
-      logStreamDhcp.write('\nSW10に接続しました\n');
+  // クライアントの接続が閉じられたことを追跡する関数
+  function endSession() {
+    if (sessionEnded) {
+      console.log('セッションは既に終了しています');
+      return; // 既に終了処理済みなら何もしない
     }
+    
+    // セッション終了フラグを最初に設定
+    sessionEnded = true;
+    console.log('セッション終了処理を開始します');
+
+    // ログストリームが存在し、まだwritableなら閉じる
+    if (logStreamDhcp && logStreamDhcp.writable) {
+      try {
+        logStreamDhcp.end('SW10接続が閉じられました\n', () => {
+          console.log('ログストリームを正常に閉じました');
+          addLogEntry('SW10ログストリームを閉じました。データ抽出を開始します。');
+          // データ抽出処理は別タイミングで実行
+          process.nextTick(() => {
+            try {
+              extractor(); // ストリームが確実に閉じられた後にデータ抽出を実行
+            } catch (extractErr) {
+              console.error('データ抽出中にエラーが発生しました:', extractErr);
+              addLogEntry(`データ抽出エラー: ${extractErr}`, 'error');
+              isLogging = false; // 確実にフラグを下ろす
+            }
+          });
+        });
+      } catch (endErr) {
+        console.error('ログストリーム終了エラー:', endErr);
+        addLogEntry(`ログストリーム終了エラー: ${endErr}`, 'error');
+        // エラーが発生した場合も、データ抽出を試みる
+        try {
+          extractor();
+        } catch (extractErr) {
+          console.error('データ抽出中にエラーが発生しました:', extractErr);
+          isLogging = false;
+        }
+      }
+    } else {
+      // ストリームが存在しないか、既に閉じられている場合
+      console.log('ログストリームは既に閉じられているか、利用できません');
+      addLogEntry('SW10ログストリームが利用できないため、データ抽出を直接開始します。');
+      try {
+        extractor();
+      } catch (extractErr) {
+        console.error('データ抽出中にエラーが発生しました:', extractErr);
+        addLogEntry(`データ抽出エラー: ${extractErr}`, 'error');
+        isLogging = false; // 確実にフラグを下ろす
+      }
+    }
+  }
+
+  client.connect(23, '172.20.7.253', () => {
+    // 接続が確立された後にログストリームを開く
+    logStreamDhcp = fs.createWriteStream(path.join(logDir, 'ap.log'), { flags: 'a' });
+    
+    // ストリームエラーハンドラを追加
+    logStreamDhcp.on('error', (streamErr) => {
+      console.error('SW10ログストリームエラー:', streamErr);
+      addLogEntry(`SW10ログストリームエラー: ${streamErr}`, 'error');
+    });
+
+    console.log('SW10に接続しました');
+    logStreamDhcp.write('\nSW10に接続しました\n');
+    addLogEntry('SW10に接続しました');
   });
 
   client.on('data', (data) => {
+    if (sessionEnded) return; // セッション終了後のデータは無視
+
     const dataStr = data.toString();
     buffer += dataStr;
-    logStreamDhcp.write(dataStr);
-
-    // デバッグ用にバッファの内容を確認
     console.log(`SW10受信データ: ${dataStr}`);
+
+    // ログストリームが利用可能な場合のみ書き込み
+    if (logStreamDhcp && logStreamDhcp.writable) {
+      try {
+        logStreamDhcp.write(dataStr);
+      } catch (err) {
+        console.error('ログストリーム書き込みエラー:', err);
+      }
+    }
 
     switch (currentState) {
       case 'login':
@@ -214,7 +279,14 @@ function getDhcpInfo() {
           setTimeout(() => {
             console.log('コマンドを実行します');
             client.write(command + '\r\n');
-            logStreamDhcp.write(`\n=== 実行コマンド: ${command} ===\n`);
+            // ログストリームに書き込む際に安全性チェックを追加
+            if (logStreamDhcp && logStreamDhcp.writable) {
+              try {
+                logStreamDhcp.write(`\n=== 実行コマンド: ${command} ===\n`);
+              } catch (err) {
+                console.error('コマンドログ書き込みエラー:', err);
+              }
+            }
             addLogEntry(`SW10コマンド実行: ${command}`);
             commandExecuted = true;
           }, 1000);
@@ -243,9 +315,30 @@ function getDhcpInfo() {
         // プロンプトが表示されたらログアウト
         if ((buffer.includes('>') || buffer.includes('#')) && commandExecuted) {
           console.log('コマンド実行完了を検出しました');
-          client.write('exit\r\n');
-          client.end();
-          addLogEntry('SW10コマンド実行完了、ログアウトします');
+          // 既にセッション終了処理が行われていないことを確認
+          if (!sessionEnded) {
+            try {
+              client.write('exit\r\n');
+              // すぐにclient.end()を呼ぶのではなく、少し待ってから閉じる
+              setTimeout(() => {
+                if (!sessionEnded) {
+                  try {
+                    client.end();
+                    addLogEntry('SW10コマンド実行完了、ログアウトします');
+                  } catch (endErr) {
+                    console.error('接続終了エラー:', endErr);
+                    // 接続を強制的に切断
+                    client.destroy();
+                  }
+                }
+              }, 500); // 500ms待機
+            } catch (writeErr) {
+              console.error('exit書き込みエラー:', writeErr);
+              // 書き込みエラーの場合は接続を強制的に切断
+              client.destroy();
+              addLogEntry('SW10コマンド実行後の終了処理でエラーが発生しました');
+            }
+          }
         }
         break;
     }
@@ -253,50 +346,48 @@ function getDhcpInfo() {
 
   client.on('close', () => {
     console.log('SW10接続が閉じられました');
-    addLogEntry('SW10接続が閉じられました'); // Log first
-    if (logStreamDhcp.writable) {
-        // Write final message and then end the stream.
-        // Call extractor in the end() callback to ensure file is ready.
-        logStreamDhcp.end('SW10接続が閉じられました\n', () => {
-          addLogEntry('SW10ログストリームを閉じました。データ抽出を開始します。');
-          extractor(); // Call extractor AFTER stream is closed
-        });
-    } else {
-      // If stream somehow already closed, call extractor directly
-      // isLogging will be handled by extractor
-      addLogEntry('SW10ログストリームは既に閉じていました。データ抽出を開始します。');
-      extractor();
-    }
+    addLogEntry('SW10接続が閉じられました');
+    endSession(); // 終了処理を集約
   });
 
   client.on('error', (err) => {
     console.error('SW10接続でエラーが発生しました:', err);
-    addLogEntry(`SW10接続でエラーが発生しました: ${err}`, 'error'); // Log first
-    if (logStreamDhcp.writable) {
-      // Try to write the error message, but don't end the stream here.
-      logStreamDhcp.write(`SW10接続でエラーが発生しました: ${err}\n`);
+    addLogEntry(`SW10接続でエラーが発生しました: ${err}`, 'error');
+    
+    // エラー時のログ記録を試みる（書き込み可能な場合のみ）
+    if (logStreamDhcp && logStreamDhcp.writable) {
+      try {
+        logStreamDhcp.write(`SW10接続でエラーが発生しました: ${err}\n`);
+      } catch (writeErr) {
+        console.error('エラーログ書き込み失敗:', writeErr);
+      }
     }
-    // Close event should still fire to end the stream and call extractor
-    // Set logging flag to false as the process failed here.
+    
+    // client.destroy()によってclose イベントが発生するため、
+    // ここではendSession()を直接呼び出さない
+    client.destroy();
+    
+    // ただし、万が一closeイベントが発生しない場合に備えてフラグは設定
     isLogging = false;
-    addLogEntry('ログ収集プロセスがエラーで終了しました。');
   });
 
   // タイムアウト処理
   setTimeout(() => {
-    if (!client.destroyed) { // Check if already destroyed
+    if (!sessionEnded && !client.destroyed) {
       console.log('SW10接続がタイムアウトしました');
-      addLogEntry('SW10接続がタイムアウトしました', 'error'); // Log first
-      if (logStreamDhcp.writable) { // Try to write timeout message
-        logStreamDhcp.write('SW10接続がタイムアウトしました\n');
+      addLogEntry('SW10接続がタイムアウトしました', 'error');
+      
+      if (logStreamDhcp && logStreamDhcp.writable) {
+        try {
+          logStreamDhcp.write('SW10接続がタイムアウトしました\n');
+        } catch (writeErr) {
+          console.error('タイムアウトログ書き込み失敗:', writeErr);
+        }
       }
-      client.destroy(); // Destroy the client socket
-      // Close event should fire after destroy, which will handle stream closing.
-      // Set logging flag to false as the process failed here.
-      isLogging = false;
-      addLogEntry('ログ収集プロセスがタイムアウトで終了しました。');
+      
+      client.destroy(); // これによりcloseイベントが発生する
     }
-  }, 30000); // 30秒でタイムアウト
+  }, 30000);
 }
 
 // ------------------------------------------------
