@@ -53,7 +53,7 @@
         /* アクセスポイント情報テーブル */
         table#info_ap {
             margin: auto;
-            width: 95%;
+            width: 93%;
             height: 70%;
             white-space: nowrap;
         }
@@ -113,6 +113,33 @@
             text-align: center;
         }
 
+        /* DHCP情報表示のスタイル */
+        #infobar {
+            position: fixed; 
+            bottom: 0; 
+            right: 0; 
+            width: 100%; 
+            background-color: #f0f0f0; 
+            border-top: 1px solid #ccc;
+        }
+        
+        #dhcp-info {
+            text-align: left; 
+            padding: 5px 10px; 
+            font-weight: bold;
+            border-radius: 4px;
+            margin-left: 5px;
+        }
+        
+        #dhcp-info .value {
+            font-size: 1.1em;
+        }
+        
+        #ptime {
+            text-align: right; 
+            padding: 5px;
+        }
+
     </style>
 </head>
 
@@ -167,9 +194,16 @@
     </script>
     
     <!-- 最終更新時刻を表示するテーブル -->
-    <table id="infobar" style="position: fixed; bottom: 0; right: 0; width: 100%; background-color: #f0f0f0; border-top: 1px solid #ccc;">
+    <table id="infobar">
         <tr>
-            <td id="ptime" style="text-align: right; padding: 5px;">
+            <% 
+            // DHCP使用率に基づいてレベルを計算
+            const dhcpLevel = Math.min(Math.ceil(dhcpUtilization / 10), 10);
+            %>
+            <td id="dhcp-info" class="lv<%= dhcpLevel %>">
+                DHCP Pool: <span class="value"><%= dhcpUtilization.toFixed(2) %>%</span>
+            </td>
+            <td id="ptime">
                 <%= new Date(mtime * 1000).toLocaleString('ja-JP', {year: 'numeric', month: '2-digit', day: '2-digit', weekday: 'short', hour: '2-digit', minute: '2-digit', second: '2-digit'}) %>
             </td>
         </tr>

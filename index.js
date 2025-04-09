@@ -93,12 +93,12 @@ function logger() {
   ];
   let currentCommand = 0;
 
-  addLogEntry('telnetサーバーに接続を試みています...');
+  addLogEntry('APサーバに接続を試みています...');
 
   client.connect(23, '172.21.7.220', () => {
-    console.log('telnetサーバーに接続しました');
-    logStream.write('telnetサーバーに接続しました\n');
-    addLogEntry('telnetサーバーに接続しました');
+    console.log('APサーバに接続しました');
+    logStream.write('APサーバに接続しました\n');
+    addLogEntry('APサーバに接続しました');
   });
 
   client.on('data', (data) => {
@@ -149,7 +149,7 @@ function logger() {
     console.log('接続が閉じられました');
     logStream.write('接続が閉じられました\n');
     logStream.end();
-    addLogEntry('telnet接続が閉じられました');
+    addLogEntry('APサーバ接続が閉じられました');
 
     // SW10からDHCP情報を取得
     getDhcpInfo();
@@ -162,7 +162,7 @@ function logger() {
     console.error('エラーが発生しました:', err);
     logStream.write(`エラーが発生しました: ${err}\n`);
     logStream.end();
-    addLogEntry(`エラーが発生しました: ${err}`, 'error');
+    addLogEntry(`APサーバ接続でエラーが発生しました: ${err}`, 'error');
   });
 }
 
@@ -539,10 +539,11 @@ function extractor() {
       }
       
       if (inDhcpStat && line.includes('Pool utilization')) {
-        // "Pool utilization: 50%" のような形式から数値を抽出
-        const match = line.match(/Pool utilization:\s*(\d+)%/);
+        // "Pool utilization:                  25.00%" のような形式から数値を抽出
+        const match = line.match(/Pool utilization:\s*([\d.]+)%/);
         if (match && match[1]) {
-          utilization = parseInt(match[1], 10);
+          // 小数点を含む値をそのまま使用
+          utilization = parseFloat(match[1]);
         }
         inDhcpStat = false;
       }

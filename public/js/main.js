@@ -85,5 +85,23 @@ function updateDisplay(data) {
     });
   }
   
+  // DHCPプール使用率の更新
+  const dhcpInfoElement = document.getElementById('dhcp-info');
+  if (dhcpInfoElement && data.dhcpUtilization !== undefined) {
+    // DHCP使用率によって色を変更（lvクラスを設定）
+    const dhcpLevel = Math.min(Math.ceil(data.dhcpUtilization / 10), 10);
+    
+    // 現在のlvクラスを削除
+    for (let i = 0; i <= 10; i++) {
+      dhcpInfoElement.classList.remove(`lv${i}`);
+    }
+    
+    // 新しいlvクラスを追加
+    dhcpInfoElement.classList.add(`lv${dhcpLevel}`);
+    
+    // 表示を更新
+    dhcpInfoElement.innerHTML = `DHCP Pool: <span class="value">${data.dhcpUtilization.toFixed(2)}%</span>`;
+  }
+  
   console.log('表示を更新しました');
 } 
