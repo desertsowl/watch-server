@@ -13,7 +13,6 @@ const net = require('net');
 const fs = require('fs');
 const path = require('path');
 const WebSocket = require('ws');
-const { exec } = require('child_process');
 
 // EJSテンプレートエンジンの設定
 app.set('view engine', 'ejs');
@@ -21,27 +20,6 @@ app.set('views', path.join(__dirname, 'views'));
 
 // 静的ファイルの提供を有効化
 app.use(express.static('public'));
-
-// キオスクモードでブラウザを起動するエンドポイント
-app.get('/launch-kiosk', (req, res) => {
-  const browserCommand = process.platform === 'linux' 
-    ? 'chromium-browser --kiosk --app=http://localhost:5000'
-    : (process.platform === 'darwin' 
-      ? 'open -a "Google Chrome" --args --kiosk --app=http://localhost:5000'
-      : 'start chrome --kiosk --app=http://localhost:5000');
-  
-  exec(browserCommand, (error, stdout, stderr) => {
-    if (error) {
-      addLogEntry(`ブラウザ起動エラー: ${error.message}`, 'error');
-      return res.status(500).send({ error: error.message });
-    }
-    if (stderr) {
-      addLogEntry(`ブラウザ起動警告: ${stderr}`, 'warning');
-    }
-    addLogEntry('キオスクモードでブラウザを起動しました');
-    res.send({ success: true });
-  });
-});
 
 // グローバル変数としてAPデータを保持
 let apData = {
@@ -52,7 +30,11 @@ let apData = {
 let isLogging = false;
 
 // WebSocketサーバーの作成
-const wss = new WebSocket.Server({ port: 5001 });
+const server = app.listen(PORT, () => {
+  console.log(`http://localhost:${PORT} で待機中`);
+  addLogEntry(`サーバーを起動しました（更新間隔: ${UPDATE_INTERVAL/1000}秒）`);
+});
+const wss = new WebSocket.Server({ server });
 
 // WebSocketクライアントの管理
 const clients = new Set();
@@ -666,11 +648,6 @@ setInterval(() => {
     addLogEntry('前回のログ収集が完了していないため、定期更新をスキップします。');
   }
 }, UPDATE_INTERVAL);
-
-app.listen(PORT, () => {
-  console.log(`http://localhost:${PORT} で待機中`);
-  addLogEntry(`サーバーを起動しました（更新間隔: ${UPDATE_INTERVAL/1000}秒）`);
-});
 
 // メイン処理
 function updateApData(apStatusInfo, clientCounts, maxClients, dhcpUtilization) {

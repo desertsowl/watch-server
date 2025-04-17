@@ -1,25 +1,50 @@
 // WebSocket接続の確立
-const ws = new WebSocket('ws://localhost:5001');
+let ws;
+let reconnectAttempts = 0;
+const MAX_RECONNECT_ATTEMPTS = 5;
+const INITIAL_RECONNECT_DELAY = 1000; // 1秒
 
-// WebSocket接続が確立されたときの処理
-ws.onopen = () => {
-  console.log('WebSocket接続が確立されました');
-};
+function connectWebSocket() {
+  ws = new WebSocket('ws://localhost:5001');
 
-// WebSocketからメッセージを受信したときの処理
-ws.onmessage = (event) => {
-  const data = JSON.parse(event.data);
-  updateDisplay(data);
-};
+  // WebSocket接続が確立されたときの処理
+  ws.onopen = () => {
+    console.log('WebSocket接続が確立されました');
+    reconnectAttempts = 0; // 接続成功時にリセット
+  };
 
-// WebSocket接続が切断されたときの処理
-ws.onclose = () => {
-  console.log('WebSocket接続が切断されました');
-  // 再接続を試みる
-  setTimeout(() => {
-    window.location.reload();
-  }, 5000);
-};
+  // WebSocketからメッセージを受信したときの処理
+  ws.onmessage = (event) => {
+    const data = JSON.parse(event.data);
+    updateDisplay(data);
+  };
+
+  // WebSocket接続が切断されたときの処理
+  ws.onclose = () => {
+    console.log('WebSocket接続が切断されました');
+    
+    if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+      const delay = INITIAL_RECONNECT_DELAY * Math.pow(2, reconnectAttempts);
+      console.log(`${delay/1000}秒後に再接続を試みます (試行回数: ${reconnectAttempts + 1}/${MAX_RECONNECT_ATTEMPTS})`);
+      
+      setTimeout(() => {
+        reconnectAttempts++;
+        connectWebSocket();
+      }, delay);
+    } else {
+      console.log('最大再接続試行回数に達しました。ページをリロードします。');
+      window.location.reload();
+    }
+  };
+
+  // WebSocket接続でエラーが発生したときの処理
+  ws.onerror = (error) => {
+    console.error('WebSocketエラー:', error);
+  };
+}
+
+// 初期接続
+connectWebSocket();
 
 // 表示を更新する関数
 function updateDisplay(data) {

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ja">
 <head>
     <title>AP監視ページ</title>
     <meta charset=UTF-8>
@@ -19,7 +19,8 @@
         }
 
         body {
-            font-family: sans-serif;
+            font-family: 'anton', sans-serif;
+             letter-spacing: -0.03em;
         }
 
         table#header {
@@ -54,14 +55,20 @@
         table#info_ap {
             margin: auto;
             width: 93%;
-            height: 70%;
+            height: auto;
+          /*  white-space: normal; */
             white-space: nowrap;
         }
 
         table#info_ap td {
             vertical-align: top;
             text-align: center;
-            border: solid 1px black;
+            border: solid 1px black;        table#info_ap td div.info_ssid {
+            width: 100%;
+            height: 3.5em;
+            text-align: center;
+            line-height: 1.1em;
+        }
             background-color: #ccc;
             width: 10%;
             height: 50%;
@@ -70,13 +77,16 @@
         /* アクセスポイントの情報 */
         table#info_ap td div.info_ap {
             line-height: 0.4em;
-            padding:0.2em 0.1em 0.3em 0.1em;
+            padding:0.2em 0.1em 0.5em 0.1em;
         }
         
         table#info_ap td span.ap_name {
             color: rgba(0, 0, 0, 0.5);
             font-weight: 900;
             font-size: 0.7em;
+            line-height: 0.1em;
+            word-wrap: break-word; /* 単語内でも折り返しを許可 */
+            word-break: break-all; /* 必要に応じて単語を分割 */
         }
 
         table#info_ap td span.radio {
@@ -85,22 +95,24 @@
             line-height: 0.2em;
         }
 
-        /* SSIDの情報 */
         table#info_ap td div.info_ssid {
             width: 100%;
-            height: 3.5em;
+            padding:0.2em 0 0 0;
             text-align: center;
-            line-height: 1.1em;
+            line-height: 0.8em;
+            overflow: visible; /* はみ出した内容を表示 */
+            white-space: normal;
         }
 
         table#info_ap td span.ssid_name {
             align-items: center;
             font-size: 0.7em;
-            font-weight: 900;
-            width: 100%;
+            font-weight: 700;
+            line-height: 0.3em;
         }
+
         table#info_ap td span.maxcount {
-            line-height: 0.5em;
+            line-height: 0.1em;
             color: rgba(0, 0, 0, 0.7);
             font-size: 0.5em;
         }
@@ -108,8 +120,7 @@
         table#info_ap td span.cnt {
             font-size: 2.2em;
             font-weight: 900;
-            line-height: 0.8em;
-            width: 100%;
+            line-height: 0.9em;
             text-align: center;
         }
 
@@ -151,16 +162,13 @@
             cursor: pointer;
             z-index: 1000;
             font-size: 14px;
-        }
+        }            white-space: normal; /* 折り返しを許可 */
+
         
         #kiosk-button {
-            right: 180px;
-        }
-        
-        #kiosk-app-button {
-            right: 10px;
-        }
-        
+            right: 180px;            line-height: 0.1em;
+
+
         #kiosk-button:hover, #kiosk-app-button:hover {
             background-color: #45a049;
         }
@@ -168,10 +176,7 @@
     </style>
 </head>
 
-<body>
-    <button id="kiosk-button">フルスクリーン表示</button>
-    <button id="kiosk-app-button">アプリとして起動</button>
-    
+<body>   
     <table id="header">
         <tr>
             <td id="title">§&nbsp;WiFi AP Heatmap</td>
@@ -240,41 +245,5 @@
     <!-- WebSocket接続用のスクリプトを読み込む -->
     <script src="/js/main.js"></script>
     
-    <!-- キオスクモード用スクリプト -->
-    <script>
-        // フルスクリーンボタン
-        document.getElementById('kiosk-button').addEventListener('click', function() {
-            // 新しいウィンドウをキオスクモードで開く
-            const kioskWindow = window.open(window.location.href, 'kioskWindow', 
-                'toolbar=no,location=no,directories=no,status=no,menubar=no,scrollbars=yes,resizable=yes,width='+screen.width+',height='+screen.height);
-            
-            // フルスクリーンリクエスト（ブラウザによって動作が異なる）
-            if (kioskWindow && kioskWindow.document.documentElement.requestFullscreen) {
-                kioskWindow.document.documentElement.requestFullscreen().catch(err => {
-                    console.log('フルスクリーン化できませんでした:', err);
-                });
-            }
-        });
-        
-        // アプリとして起動ボタン
-        document.getElementById('kiosk-app-button').addEventListener('click', function() {
-            fetch('/launch-kiosk')
-                .then(response => response.json())
-                .then(data => {
-                    if (data.error) {
-                        alert('起動エラー: ' + data.error);
-                    }
-                })
-                .catch(err => {
-                    console.error('ブラウザ起動エラー:', err);
-                });
-        });
-        
-        // 現在のウィンドウがポップアップの場合、ボタンを非表示
-        if (window.opener) {
-            document.getElementById('kiosk-button').style.display = 'none';
-            document.getElementById('kiosk-app-button').style.display = 'none';
-        }
-    </script>
 </body>
 </html> 
