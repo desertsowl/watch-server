@@ -125,7 +125,8 @@ function logger() {
     const commands = [
       'show aps',
       'show amp-audit | include (ssid-profile|max-clients-threshold)',
-      'show clients'
+      'show clients',
+      'show network'
     ];
     let currentCommand = 0;
     let apCollectionComplete = false; // AP情報収集が完了したかを追跡
