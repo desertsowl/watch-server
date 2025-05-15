@@ -29,13 +29,15 @@
 
         table#header td#title {
             font-weight: 900;
+            font-size: 1.0em;
+            line-height: 1.1em;
         }
 
         table#header td.chart {
             font-weight: 600;
             width: 2.2vw;
-            text-align: right;
-            font-size: 1.3em;
+            text-align: center;
+            font-size: 1.1em;
             line-height: 0.8em;
         }
 
@@ -96,7 +98,7 @@
             text-align: center;
             line-height: 0.8em;
             overflow: visible; /* はみ出した内容を表示 */
-            white-space: normal;
+            white-space: nowrap;
         }
 
         table#info_ap td span.ssid_name {
@@ -107,7 +109,6 @@
         }
 
         table#info_ap td span.maxcount {
-            line-height: 0.1em;
             color: rgba(0, 0, 0, 0.7);
             font-size: 0.5em;
         }
@@ -142,10 +143,18 @@
             font-size: 1.1em;
         }
         
+        #network-info {
+            text-align: left;
+            padding: 5px 10px;
+            font-size: 0.7em;
+            font-weight: bold;
+        }
+        
         #ptime {
             text-align: right; 
             padding: 5px;
             font-size: 0.7em;
+            font-weight: bold;
         }
 
     </style>
@@ -210,6 +219,9 @@
             %>
             <td id="dhcp-info" class="lv<%= dhcpLevel %>">
                 DHCP Pool: <span class="value"><%= dhcpUtilization.toFixed(2) %>%</span>
+            </td>
+            <td id="network-info">
+                <%= networkInfo %>
             </td>
             <td id="ptime">
                 <%= new Date(mtime * 1000).toLocaleString('ja-JP', {year: 'numeric', month: '2-digit', day: '2-digit', weekday: 'short', hour: '2-digit', minute: '2-digit', second: '2-digit'}) %>

@@ -601,6 +601,38 @@ function extractor() {
     return utilization;
   }
 
+  // ネットワーク情報を抽出する関数
+  function extractNetworkInfo(lines) {
+    const networkInfo = [];
+    let inNetworkList = false;
+
+    for (const line of lines) {
+      if (line.includes('Networks')) {
+        inNetworkList = true;
+        continue;
+      }
+
+      if (inNetworkList) {
+        if (line.trim() === '') {
+          inNetworkList = false;
+          continue;
+        }
+
+        // ネットワーク情報の行を解析
+        const match = line.match(/^(\S+)\s+\S+\s+(\d+)\s+/);
+        if (match && match[1] && match[2]) {
+          const networkName = match[1];
+          const clientCount = parseInt(match[2], 10);
+          if (clientCount > 0) {
+            networkInfo.push(`${networkName}:${clientCount}`);
+          }
+        }
+      }
+    }
+
+    return networkInfo.join(' / ');
+  }
+
   // メイン処理
   fs.readFile(logFilePath, 'utf8', (err, data) => {
     if (err) {
@@ -617,8 +649,9 @@ function extractor() {
         const clientCounts = extractClientInfo(lines);
         const maxClients = extractMaxClients(lines);
         const dhcpUtilization = extractDhcpUtilization(lines);
+        const networkInfo = extractNetworkInfo(lines);
 
-        updateApData(apInfo, clientCounts, maxClients, dhcpUtilization);
+        updateApData(apInfo, clientCounts, maxClients, dhcpUtilization, networkInfo);
 
     } catch (parseError) {
         console.error('ログデータの解析中にエラーが発生しました:', parseError);
@@ -651,11 +684,12 @@ setInterval(() => {
 }, UPDATE_INTERVAL);
 
 // メイン処理
-function updateApData(apStatusInfo, clientCounts, maxClients, dhcpUtilization) {
+function updateApData(apStatusInfo, clientCounts, maxClients, dhcpUtilization, networkInfo) {
   // APデータの更新
   apData.mtime = Math.floor(Date.now() / 1000);
   apData.aps = [];
   apData.dhcpUtilization = dhcpUtilization; // DHCPプール使用率を設定
+  apData.networkInfo = networkInfo; // ネットワーク情報を設定
 
   // APデータの構築
   for (let i = 1; i <= 16; i++) {

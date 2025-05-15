@@ -1,0 +1,11 @@
+[0;1;31m×[0m pm2-denshin.service - PM2 process manager
+     Loaded: loaded (]8;;file://pilot/etc/systemd/system/pm2-denshin.service/etc/systemd/system/pm2-denshin.service]8;;; [0;1;32menabled[0m; preset: [0;1;32menabled[0m)
+     Active: [0;1;31mfailed[0m (Result: protocol) since Thu 2025-05-01 11:09:44 JST; 14s ago
+       Docs: ]8;;https://pm2.keymetrics.io/https://pm2.keymetrics.io/]8;;
+    Process: 2617 ExecStart=/home/denshin/.nvm/versions/node/v22.14.0/lib/node_modules/pm2/bin/pm2 resurrect (code=exited, status=0/SUCCESS)
+        CPU: 298ms
+
+May 01 11:09:44 pilot systemd[1]: pm2-denshin.service: Scheduled restart job, restart counter is at 5.
+May 01 11:09:44 pilot systemd[1]: [0;1;38;5;185m[0;1;39m[0;1;38;5;185mpm2-denshin.service: Start request repeated too quickly.[0m
+May 01 11:09:44 pilot systemd[1]: [0;1;38;5;185m[0;1;39m[0;1;38;5;185mpm2-denshin.service: Failed with result 'protocol'.[0m
+May 01 11:09:44 pilot systemd[1]: [0;1;31m[0;1;39m[0;1;31mFailed to start pm2-denshin.service - PM2 process manager.[0m
